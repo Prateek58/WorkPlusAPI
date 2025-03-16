@@ -1,0 +1,6 @@
+@WorkPlusAPI_HostAddress = http://localhost:5098
+
+GET {{WorkPlusAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

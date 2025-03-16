@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorkPlusAPI", "WorkPlusAPI.csproj", "{28BFA9D1-56FF-4C95-6055-69C77A4435C9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{28BFA9D1-56FF-4C95-6055-69C77A4435C9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{28BFA9D1-56FF-4C95-6055-69C77A4435C9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{28BFA9D1-56FF-4C95-6055-69C77A4435C9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{28BFA9D1-56FF-4C95-6055-69C77A4435C9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {53D4A76D-267B-487F-B942-076B3144B1DC}
+	EndGlobalSection
+EndGlobal
