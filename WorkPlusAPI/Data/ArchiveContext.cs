@@ -1,17 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
-using Pomelo.EntityFrameworkCore.MySql.Scaffolding.Internal;
 using WorkPlusAPI.Models.Archive;
 
 namespace WorkPlusAPI.Data;
 
 public partial class ArchiveContext : DbContext
 {
-    public ArchiveContext()
-    {
-    }
-
     public ArchiveContext(DbContextOptions<ArchiveContext> options)
         : base(options)
     {
@@ -46,10 +41,6 @@ public partial class ArchiveContext : DbContext
     public virtual DbSet<LrParty> LrParties { get; set; }
 
     public virtual DbSet<LrTransporter> LrTransporters { get; set; }
-
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseMySql("server=localhost;database=work_plus_archive;user=root;password=root123;port=3306", Microsoft.EntityFrameworkCore.ServerVersion.Parse("11.7.2-mariadb"));
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

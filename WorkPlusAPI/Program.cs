@@ -55,12 +55,14 @@ builder.Services.AddDbContext<WorkPlusContext>(options =>
 builder.Services.AddDbContext<ArchiveContext>(options =>
     options.UseMySql(
         builder.Configuration.GetConnectionString("ArchiveConnection"),
-        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("ArchiveConnection"))
-    ).UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking)
+        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("ArchiveConnection")),
+        b => b.MigrationsAssembly("WorkPlusAPI")
+    )
 );
 
 // Register services
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IJobWorkService, JobWorkService>();
 
 // Configure JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -79,14 +81,17 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-// Add CORS
+// Configure CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp",
-        builder => builder
-            .AllowAnyOrigin()
-            .AllowAnyMethod()
-            .AllowAnyHeader());
+        builder =>
+        {
+            builder.WithOrigins("http://localhost:5173")
+                   .AllowAnyMethod()
+                   .AllowAnyHeader()
+                   .AllowCredentials();
+        });
 });
 
 var app = builder.Build();
@@ -100,7 +105,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Use CORS
+// Use CORS before routing and authentication
 app.UseCors("AllowReactApp");
 
 app.UseAuthentication();
