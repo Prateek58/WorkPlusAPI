@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WorkPlusAPI.Services;
 using WorkPlusAPI.DTOs;
+using Microsoft.EntityFrameworkCore;
 
 namespace WorkPlusAPI.Controllers;
 
