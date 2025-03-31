@@ -42,17 +42,33 @@ public class JobWorkController : ControllerBase
     }
 
     [HttpGet("list")]
-    public async Task<ActionResult<IEnumerable<JobWorkDto>>> GetJobWorks([FromQuery] JobWorkFilter filter)
+    public async Task<ActionResult<JobWorkResponse>> GetJobWorks([FromQuery] JobWorkFilter filter)
     {
-        var jobWorks = await _jobWorkService.GetJobWorksAsync(filter);
-        return Ok(jobWorks);
+        try
+        {
+            var jobWorks = await _jobWorkService.GetJobWorksAsync(filter);
+            return Ok(jobWorks);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting job works: {Message}", ex.Message);
+            return StatusCode(500, "An error occurred while retrieving job works");
+        }
     }
 
     [HttpGet("summary")]
     public async Task<ActionResult<JobWorkSummaryDto>> GetSummary([FromQuery] JobWorkFilter filter)
     {
-        var summary = await _jobWorkService.GetJobWorkSummaryAsync(filter);
-        return Ok(summary);
+        try
+        {
+            var summary = await _jobWorkService.GetJobWorkSummaryAsync(filter);
+            return Ok(summary);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting job work summary: {Message}", ex.Message);
+            return StatusCode(500, "An error occurred while retrieving the job work summary");
+        }
     }
 
     [HttpGet("export/excel")]

@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using WorkPlusAPI.Data;
 using WorkPlusAPI.Services;
+using OfficeOpenXml;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -93,6 +94,10 @@ builder.Services.AddCors(options =>
                    .AllowCredentials();
         });
 });
+
+// Set EPPlus license
+// For EPPlus version 4.5.3.x:
+ExcelPackage.LicenseContext = OfficeOpenXml.LicenseContext.NonCommercial;
 
 var app = builder.Build();
 
