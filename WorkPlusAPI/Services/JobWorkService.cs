@@ -646,6 +646,15 @@ public class JobWorkService : IJobWorkService
                 worksheet.Cells[rowIndex, i].Style.Border.BorderAround(ExcelBorderStyle.Thin);
             }
 
+            // Add a separate total row
+            rowIndex++;
+            worksheet.Cells[rowIndex, 1, rowIndex, 7].Merge = true;
+            worksheet.Cells[rowIndex, 8].Value = $"Total: {totals.GrandTotal:N2}";
+            worksheet.Cells[rowIndex, 8].Style.Font.Bold = true;
+            worksheet.Cells[rowIndex, 8].Style.Numberformat.Format = "#,##0.00";
+            worksheet.Cells[rowIndex, 8].Style.Border.BorderAround(ExcelBorderStyle.Thin);
+            worksheet.Cells[rowIndex, 8].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+
             // Auto-fit columns
             for (int i = 1; i <= 8; i++)
             {
@@ -814,6 +823,10 @@ public class JobWorkService : IJobWorkService
             AddCell(table, totalJobAmtAll.ToString("N2"), totalFont, Element.ALIGN_RIGHT);
             AddCell(table, grandTotalAll.ToString("N2"), totalFont, Element.ALIGN_RIGHT);
 
+            // Add a separate total row with all cells merged except the last one
+            AddCell(table, "", totalFont, Element.ALIGN_RIGHT, colspan: 7);
+            AddCell(table, $"Total: {grandTotalAll:N2}", totalFont, Element.ALIGN_RIGHT);
+
             document.Add(table);
             document.Close();
 
@@ -964,6 +977,10 @@ public class JobWorkService : IJobWorkService
                 AddCell(table, summary.TotalQuantity.ToString("N2"), totalFont, Element.ALIGN_RIGHT);
                 AddCell(table, summary.TotalJobAmount.ToString("N2"), totalFont, Element.ALIGN_RIGHT);
                 AddCell(table, summary.GrandTotal.ToString("N2"), totalFont, Element.ALIGN_RIGHT);
+
+                // Add a separate total row with all cells merged except the last one
+                AddCell(table, "", totalFont, Element.ALIGN_RIGHT, colspan: 7);
+                AddCell(table, $"Total: {summary.GrandTotal:N2}", totalFont, Element.ALIGN_RIGHT);
 
                 document.Add(table);
                 
