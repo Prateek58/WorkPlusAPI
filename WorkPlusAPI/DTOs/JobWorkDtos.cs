@@ -66,6 +66,7 @@ public class JobWorkFilter
     public int? PageSize { get; set; } = 10;
     public string? SortBy { get; set; }
     public string? SortOrder { get; set; }
+    public string? Columns { get; set; }
 }
 
 public class JobWorkDto : IJobWorkDto

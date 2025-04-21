@@ -116,18 +116,18 @@ public class JobWorkService : IJobWorkService
         // Entry data
         public long EntryId { get; set; }
         public DateTime? EntryDate { get; set; }
-        public string? JwNo { get; set; }
+        public int? JwNo { get; set; }
         public decimal? QtyItems { get; set; }
         public decimal? QtyHours { get; set; }
         public decimal? RateForJob { get; set; }
         public decimal? TotalAmount { get; set; }
         public bool? IsApproved { get; set; }
-        public string? ApprovedBy { get; set; }
+        public int? ApprovedBy { get; set; }
         public DateTime? ApprovedOn { get; set; }
-        public string? EntryByUserId { get; set; }
+        public int? EntryByUserId { get; set; }
         
         // Employee data
-        public string? EmployeeId { get; set; }
+        public short? EmployeeId { get; set; }
         public string? EmployeeName { get; set; }
         
         // Unit data
@@ -139,11 +139,11 @@ public class JobWorkService : IJobWorkService
         public string? WorkName { get; set; }
         
         // Work type data
-        public string? WorkTypeId { get; set; }
+        public short? WorkTypeId { get; set; }
         public string? WorkTypeName { get; set; }
         
         // Group data
-        public string? GroupId { get; set; }
+        public short? GroupId { get; set; }
         public string? GroupName { get; set; }
     }
 
@@ -158,7 +158,7 @@ public class JobWorkService : IJobWorkService
             
             _logger.LogInformation("Report type: {ReportType}", isAsOnReport ? "As On Report" : "Date Range Report");
 
-            // Build query - this is just defining the query, not executing it yet
+            // Build the base query using IQueryable with concrete type (not dynamic)
             var query = from entry in _context.JwEntries
                         join work in _context.JwWorks on entry.WorkId equals work.WorkId into workJoin
                         from work in workJoin.DefaultIfEmpty()
@@ -170,32 +170,32 @@ public class JobWorkService : IJobWorkService
                         from workType in typeJoin.DefaultIfEmpty()
                         join workGroup in _context.JwWorkGroups on work.GroupId equals workGroup.GroupId into groupJoin
                         from workGroup in groupJoin.DefaultIfEmpty()
-                        select new 
+                        select new JobWorkQueryResult
                         {
-                            entry.EntryId,
-                            entry.EntryDate,
-                            entry.JwNo,
-                            entry.QtyItems,
-                            entry.QtyHours,
-                            entry.RateForJob,
-                            entry.TotalAmount,
-                            entry.IsApproved,
-                            entry.ApprovedBy,
-                            entry.ApprovedOn,
-                            entry.EntryByUserId,
-                            entry.EmployeeId,
+                            EntryId = entry.EntryId,
+                            EntryDate = entry.EntryDate,
+                            JwNo = entry.JwNo,
+                            QtyItems = entry.QtyItems,
+                            QtyHours = entry.QtyHours,
+                            RateForJob = entry.RateForJob,
+                            TotalAmount = entry.TotalAmount,
+                            IsApproved = entry.IsApproved,
+                            ApprovedBy = entry.ApprovedBy,
+                            ApprovedOn = entry.ApprovedOn,
+                            EntryByUserId = entry.EntryByUserId,
+                            EmployeeId = (short?)entry.EmployeeId,
                             EmployeeName = employee != null ? (employee.FirstName + " " + employee.LastName).Trim() : string.Empty,
-                            entry.UnitId,
+                            UnitId = entry.UnitId,
                             UnitName = unit != null ? unit.UnitName : string.Empty,
-                            entry.WorkId,
+                            WorkId = entry.WorkId,
                             WorkName = work != null ? work.WorkName : string.Empty,
                             WorkTypeId = work != null ? work.WorkTypeId : null,
                             WorkTypeName = workType != null ? workType.TypeName : string.Empty,
-                            GroupId = work != null ? work.GroupId : null,
+                            GroupId = work != null ? (short?)work.GroupId : null,
                             GroupName = workGroup != null ? workGroup.GroupName : string.Empty
                         };
 
-            // Apply filters - still just building the query, not executing
+            // Apply filters - all of these operations are deferred, not executing the query yet
             // For "as on" reports, we don't filter by start date (show all data up to end date)
             if (filter.StartDate.HasValue && !isAsOnReport)
             {
@@ -209,7 +209,7 @@ public class JobWorkService : IJobWorkService
                 query = query.Where(x => x.EntryDate <= filter.EndDate.Value);
             }
 
-            // Apply other filters - still just building the query
+            // Apply other filters
             if (!string.IsNullOrEmpty(filter.JobId))
             {
                 _logger.LogInformation("Filtering by job ID: {JobId}", filter.JobId);
@@ -295,7 +295,7 @@ public class JobWorkService : IJobWorkService
                 query = query.OrderByDescending(x => x.EntryDate);
             }
 
-            // Count query - execute the query but only get count
+            // Get the total count first using the same filtered query - this runs a COUNT query in SQL
             var total = await query.CountAsync();
             _logger.LogInformation("Total records before pagination: {Total}", total);
 
@@ -303,6 +303,7 @@ public class JobWorkService : IJobWorkService
             var pageSize = filter.PageSize ?? 10;
             var page = filter.Page ?? 1;
             
+            // This is where the query is actually executed with pagination
             var entries = await query
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
@@ -315,9 +316,9 @@ public class JobWorkService : IJobWorkService
             {
                 EntryId = x.EntryId,
                 EntryDate = x.EntryDate,
-                JwNo = Convert.ToString(x.JwNo),
+                JwNo = x.JwNo?.ToString(),
                 WorkName = x.WorkName,
-                EmployeeId = x.EmployeeId.ToString(),
+                EmployeeId = x.EmployeeId?.ToString(),
                 EmployeeName = x.EmployeeName,
                 UnitName = x.UnitName,
                 WorkType = x.WorkTypeName,
@@ -327,14 +328,14 @@ public class JobWorkService : IJobWorkService
                 RateForJob = x.RateForJob,
                 TotalAmount = x.TotalAmount,
                 IsApproved = x.IsApproved,
-                ApprovedBy = Convert.ToString(x.ApprovedBy),
+                ApprovedBy = x.ApprovedBy?.ToString(),
                 ApprovedOn = x.ApprovedOn,
-                EntryByUserId = Convert.ToString(x.EntryByUserId),
-                WorkId = x.WorkId.HasValue ? x.WorkId.ToString() : null,
+                EntryByUserId = x.EntryByUserId?.ToString(),
+                WorkId = x.WorkId?.ToString(),
                 Remarks = x.WorkName
             }).ToList();
 
-            _logger.LogInformation("Successfully mapped {0} job works to DTOs", jobWorkDtos.Count);
+            _logger.LogInformation("Successfully mapped {Count} job works to DTOs", jobWorkDtos.Count);
 
             return new JobWorkResponse
             {
@@ -353,13 +354,13 @@ public class JobWorkService : IJobWorkService
     {
         try
         {
-            _logger.LogInformation("Starting GetJobWorkSummaryAsync with filter: {0}", 
+            _logger.LogInformation("Starting GetJobWorkSummaryAsync with filter: {@Filter}", 
                 JsonSerializer.Serialize(filter));
             
             // Check if this is an "as on" report (only end date provided)
             bool isAsOnReport = !filter.StartDate.HasValue && filter.EndDate.HasValue;
             
-            _logger.LogInformation("Summary Report type: {0}", 
+            _logger.LogInformation("Summary Report type: {ReportType}", 
                 isAsOnReport ? "As On Report" : "Date Range Report");
 
             // Default to today for both dates if not provided
@@ -367,13 +368,13 @@ public class JobWorkService : IJobWorkService
             {
                 filter.EndDate = DateTime.Today;
                 isAsOnReport = true; // Treat this as an "as on" report
-                _logger.LogInformation("No dates provided, defaulting to As On Report for today ({0})", 
+                _logger.LogInformation("No dates provided, defaulting to As On Report for today: {Date}", 
                     DateTime.Today);
             }
             else if (!filter.EndDate.HasValue)
             {
                 filter.EndDate = DateTime.Today;
-                _logger.LogInformation("No end date provided, defaulting to today ({0})", 
+                _logger.LogInformation("No end date provided, defaulting to today: {Date}", 
                     DateTime.Today);
             }
             
@@ -412,7 +413,7 @@ public class JobWorkService : IJobWorkService
                     TotalJobAmount = 0,
                     GrandTotal = 0,
                     TotalRecords = 0,
-                    EmployeeSummaries = new List<EmployeeSummary>()
+                    EmployeeSummaries = new List<DTOs.EmployeeSummary>()
                 };
             }
             
@@ -430,25 +431,25 @@ public class JobWorkService : IJobWorkService
                     TotalJobAmount = 0,
                     GrandTotal = 0,
                     TotalRecords = 0,
-                    EmployeeSummaries = new List<EmployeeSummary>()
+                    EmployeeSummaries = new List<DTOs.EmployeeSummary>()
                 };
             }
             
             // Group by employee and calculate totals
             var employeeSummaries = filteredJobWorks
                 .GroupBy(jw => jw.EmployeeName)
-                .Select(group => new EmployeeSummary
+                .Select(group => new DTOs.EmployeeSummary
                 {
                     EmployeeName = group.Key,
-                    EmployeeId = group.First().EmployeeId, // Add employee ID from the first record in the group
-                    Hours = group.Sum(jw => jw.QtyHours) ?? 0,
+                    EmployeeId = group.First().EmployeeId?.ToString() ?? string.Empty,
+                    Hours = group.Sum(jw => jw.QtyHours ?? 0),
                     HoursAmount = group.Sum(jw => (jw.QtyHours ?? 0) * (jw.RateForJob ?? 0)),
-                    Quantity = group.Sum(jw => jw.QtyItems) ?? 0,
+                    Quantity = group.Sum(jw => jw.QtyItems ?? 0),
                     JobAmount = group.Sum(jw => (jw.QtyItems ?? 0) * (jw.RateForJob ?? 0)),
                     Total = group.Sum(jw => (jw.QtyHours ?? 0) * (jw.RateForJob ?? 0)) + group.Sum(jw => (jw.QtyItems ?? 0) * (jw.RateForJob ?? 0)),
                     WorkSummaries = group
                         .GroupBy(jw => jw.WorkName)
-                        .Select(workGroup => new WorkSummary
+                        .Select(workGroup => new DTOs.WorkSummary
                         {
                             WorkName = workGroup.Key,
                             TotalHours = workGroup.Sum(jw => jw.QtyHours),
@@ -467,7 +468,7 @@ public class JobWorkService : IJobWorkService
             var totalJobAmount = employeeSummaries.Sum(es => es.JobAmount);
             var grandTotal = employeeSummaries.Sum(es => es.Total);
             
-            _logger.LogInformation("Successfully generated summary with {0} employee summaries", 
+            _logger.LogInformation("Successfully generated summary with {Count} employee summaries", 
                 employeeSummaries.Count);
             
             return new JobWorkSummaryDto
@@ -492,14 +493,22 @@ public class JobWorkService : IJobWorkService
     {
         try
         {
-            _logger.LogInformation("Starting ExportToExcelAsync with filter: {0}", 
+            _logger.LogInformation("Starting ExportToExcelAsync with filter: {@Filter}", 
                 System.Text.Json.JsonSerializer.Serialize(filter));
             
             // Check if this is an "as on" report (only end date provided)
             bool isAsOnReport = !filter.StartDate.HasValue && filter.EndDate.HasValue;
             
-            _logger.LogInformation("Excel Export Report type: {0}", 
+            _logger.LogInformation("Excel Export Report type: {ReportType}", 
                 isAsOnReport ? "As On Report" : "Date Range Report");
+            
+            // Parse selected columns if provided
+            IEnumerable<string> selectedColumns = new List<string>();
+            if (!string.IsNullOrEmpty(filter.Columns))
+            {
+                selectedColumns = filter.Columns.Split(',').Select(c => c.Trim());
+                _logger.LogInformation("Using selected columns: {Columns}", filter.Columns);
+            }
             
             // Prepare filter for getJobWorksAsync
             var modifiedFilter = new JobWorkFilter
@@ -513,7 +522,8 @@ public class JobWorkService : IJobWorkService
                 Page = 1, 
                 PageSize = int.MaxValue, 
                 SortBy = "employeename",
-                SortOrder = "asc"
+                SortOrder = "asc",
+                Columns = filter.Columns
             };
             
             // Only set StartDate if this is not an "as on" report
@@ -525,7 +535,19 @@ public class JobWorkService : IJobWorkService
             // Get the job works using the GetJobWorksAsync method to ensure consistent filtering
             var response = await GetJobWorksAsync(modifiedFilter);
 
-            var jobWorks = response.Data;
+            // Filter out job works with empty employee names
+            var jobWorks = response.Data.Where(jw => !string.IsNullOrWhiteSpace(jw.EmployeeName)).ToList();
+            
+            if (!jobWorks.Any())
+            {
+                _logger.LogWarning("No job works with valid employee names found for export");
+                // Return a simple Excel file with a message
+                using var emptyPackage = new ExcelPackage();
+                var emptyWorksheet = emptyPackage.Workbook.Worksheets.Add("Job Works");
+                emptyWorksheet.Cells[1, 1].Value = "No data available";
+                emptyWorksheet.Cells[1, 1].Style.Font.Bold = true;
+                return emptyPackage.GetAsByteArray();
+            }
             
             // Create an Excel package
             using var package = new ExcelPackage();
@@ -551,20 +573,64 @@ public class JobWorkService : IJobWorkService
             worksheet.Cells[1, 13].Value = "PAGE: 1";
             worksheet.Cells[1, 13].Style.Font.Bold = true;
 
-            // Add headers (row 3)
-            var headers = new[]
+            // Define all possible headers with their property names
+            var allHeaders = new Dictionary<string, string>
             {
-                "Sr. No.",
-                "EMP. No.",
-                "NAME",
-                "HRS",
-                "Total HRS Amt",
-                "Qty",
-                "Total Job Amt",
-                "Total"
+                { "unitName", "Unit" },
+                { "entryDate", "Date" },
+                { "workType", "Type" },
+                { "workName", "Job" },
+                { "qtyHours", "Hours" },
+                { "rateForJob", "Rate/day" },
+                { "qtyItems", "Quantity" },
+                { "totalAmount", "Amount" },
+                { "employeeName", "Employee" },
+                { "jwNo", "Job Work No." },
+                { "groupName", "Group" }, 
+                { "isApproved", "Is Approved" },
+                { "remarks", "Remarks" }
             };
+            
+            // Determine which headers to include
+            var headersToInclude = selectedColumns.Any() 
+                ? allHeaders.Where(h => selectedColumns.Contains(h.Key)).ToDictionary(h => h.Key, h => h.Value)
+                : new Dictionary<string, string>
+                {
+                    { "unitName", "Unit" },
+                    { "entryDate", "Date" },
+                    { "workType", "Type" },
+                    { "workName", "Job" },
+                    { "qtyHours", "Hours" },
+                    { "rateForJob", "Rate/day" },
+                    { "qtyItems", "Quantity" },
+                    { "totalAmount", "Amount" }
+                };
+                
+            // Ensure employeeName is included and make it the first column after Sr. No.
+            if (headersToInclude.ContainsKey("employeeName")) {
+                var employeeHeader = headersToInclude["employeeName"];
+                headersToInclude.Remove("employeeName");
+                
+                // Create new dictionary with employeeName first, then the rest
+                var reorderedHeaders = new Dictionary<string, string>
+                {
+                    { "employeeName", employeeHeader }
+                };
+                
+                foreach (var header in headersToInclude)
+                {
+                    reorderedHeaders.Add(header.Key, header.Value);
+                }
+                
+                headersToInclude = reorderedHeaders;
+            }
+                
+            // Add "Sr. No." as the first column
+            var headers = new List<string> { "Sr. No." };
+            headers.AddRange(headersToInclude.Values);
 
-            for (int i = 0; i < headers.Length; i++)
+            // Write headers to Excel
+            for (int i = 0; i < headers.Count; i++)
             {
                 worksheet.Cells[3, i + 1].Value = headers[i];
                 worksheet.Cells[3, i + 1].Style.Font.Bold = true;
@@ -584,79 +650,106 @@ public class JobWorkService : IJobWorkService
             foreach (var group in groupedData)
             {
                 worksheet.Cells[rowIndex, 1].Value = srNo;
-                worksheet.Cells[rowIndex, 2].Value = group.Key.EmployeeId;
-                worksheet.Cells[rowIndex, 3].Value = group.Key.EmployeeName;
                 
-                decimal totalHours = group.Sum(j => j.QtyHours ?? 0);
-                decimal totalHoursAmount = group.Sum(j => (j.QtyHours ?? 0) * (j.RateForJob ?? 0));
-                decimal totalQuantity = group.Sum(j => j.QtyItems ?? 0);
-                decimal totalJobAmount = group.Sum(j => (j.QtyItems ?? 0) * (j.RateForJob ?? 0));
-                decimal grandTotal = totalHoursAmount + totalJobAmount;
-
-                worksheet.Cells[rowIndex, 4].Value = totalHours;
-                worksheet.Cells[rowIndex, 5].Value = totalHoursAmount;
-                worksheet.Cells[rowIndex, 6].Value = totalQuantity;
-                worksheet.Cells[rowIndex, 7].Value = totalJobAmount;
-                worksheet.Cells[rowIndex, 8].Value = grandTotal;
-
-                // Format numeric columns
-                worksheet.Cells[rowIndex, 4].Style.Numberformat.Format = "#,##0.00";
-                worksheet.Cells[rowIndex, 5].Style.Numberformat.Format = "#,##0.00";
-                worksheet.Cells[rowIndex, 6].Style.Numberformat.Format = "#,##0.00";
-                worksheet.Cells[rowIndex, 7].Style.Numberformat.Format = "#,##0.00";
-                worksheet.Cells[rowIndex, 8].Style.Numberformat.Format = "#,##0.00";
-
-                // Add borders
-                for (int i = 1; i <= 8; i++)
+                // Column index (after Sr. No. column)
+                int colIndex = 2;
+                
+                foreach (var header in headersToInclude)
                 {
-                    worksheet.Cells[rowIndex, i].Style.Border.BorderAround(ExcelBorderStyle.Thin);
+                    var propertyName = header.Key;
+                    
+                    // Handle special cases for calculated values
+                    if (propertyName == "unitName")
+                    {
+                        worksheet.Cells[rowIndex, colIndex].Value = group.First().UnitName;
+                    }
+                    else if (propertyName == "entryDate")
+                    {
+                        // Group might have multiple entry dates, show the range or the first one
+                        var firstEntryDate = group.Min(j => j.EntryDate);
+                        worksheet.Cells[rowIndex, colIndex].Value = firstEntryDate;
+                        worksheet.Cells[rowIndex, colIndex].Style.Numberformat.Format = "dd/MM/yyyy";
+                    }
+                    else if (propertyName == "employeeName")
+                    {
+                        worksheet.Cells[rowIndex, colIndex].Value = group.Key.EmployeeName;
+                    }
+                    else if (propertyName == "workType")
+                    {
+                        // Take the first work type or show "Multiple" if there are different types
+                        var workTypes = group.Select(j => j.WorkType).Distinct();
+                        worksheet.Cells[rowIndex, colIndex].Value = workTypes.Count() == 1 
+                            ? workTypes.First() 
+                            : "Multiple";
+                    }
+                    else if (propertyName == "workName")
+                    {
+                        // Take the first work name or show "Multiple" if there are different names
+                        var workNames = group.Select(j => j.WorkName).Distinct();
+                        worksheet.Cells[rowIndex, colIndex].Value = workNames.Count() == 1 
+                            ? workNames.First() 
+                            : "Multiple Jobs";
+                    }
+                    else if (propertyName == "qtyHours")
+                    {
+                        worksheet.Cells[rowIndex, colIndex].Value = group.Sum(j => j.QtyHours ?? 0);
+                        worksheet.Cells[rowIndex, colIndex].Style.Numberformat.Format = "#,##0.00";
+                    }
+                    else if (propertyName == "rateForJob")
+                    {
+                        // Calculate average rate or show as is
+                        worksheet.Cells[rowIndex, colIndex].Value = group.Average(j => j.RateForJob ?? 0) * 8; // Daily rate
+                        worksheet.Cells[rowIndex, colIndex].Style.Numberformat.Format = "#,##0.00";
+                    }
+                    else if (propertyName == "qtyItems")
+                    {
+                        worksheet.Cells[rowIndex, colIndex].Value = group.Sum(j => j.QtyItems ?? 0);
+                        worksheet.Cells[rowIndex, colIndex].Style.Numberformat.Format = "#,##0.00";
+                    }
+                    else if (propertyName == "totalAmount")
+                    {
+                        worksheet.Cells[rowIndex, colIndex].Value = group.Sum(j => j.TotalAmount ?? 0);
+                        worksheet.Cells[rowIndex, colIndex].Style.Numberformat.Format = "#,##0.00";
+                    }
+                    else if (propertyName == "jwNo")
+                    {
+                        var jwNos = group.Select(j => j.JwNo).Distinct();
+                        worksheet.Cells[rowIndex, colIndex].Value = jwNos.Count() == 1 
+                            ? jwNos.First() 
+                            : "Multiple";
+                    }
+                    else if (propertyName == "groupName")
+                    {
+                        var groupNames = group.Select(j => j.GroupName).Distinct();
+                        worksheet.Cells[rowIndex, colIndex].Value = groupNames.Count() == 1 
+                            ? groupNames.First() 
+                            : "Multiple";
+                    }
+                    else if (propertyName == "isApproved")
+                    {
+                        var allApproved = group.All(j => j.IsApproved == true);
+                        var noneApproved = group.All(j => j.IsApproved == false);
+                        worksheet.Cells[rowIndex, colIndex].Value = allApproved ? "Yes" : (noneApproved ? "No" : "Partial");
+                    }
+                    else if (propertyName == "remarks")
+                    {
+                        // Take the first remarks or show truncated if there are different remarks
+                        var remarks = group.Select(j => j.Remarks).Distinct();
+                        worksheet.Cells[rowIndex, colIndex].Value = remarks.Count() == 1 
+                            ? remarks.First() 
+                            : "Multiple remarks...";
+                    }
+                    
+                    worksheet.Cells[rowIndex, colIndex].Style.Border.BorderAround(ExcelBorderStyle.Thin);
+                    colIndex++;
                 }
 
                 rowIndex++;
                 srNo++;
             }
 
-            // Add totals row
-            worksheet.Cells[rowIndex, 1].Value = "Total";
-            worksheet.Cells[rowIndex, 1, rowIndex, 3].Merge = true;
-            worksheet.Cells[rowIndex, 1].Style.Font.Bold = true;
-            worksheet.Cells[rowIndex, 1].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
-
-            // Calculate and add totals
-            var totals = jobWorks.GroupBy(x => 1).Select(g => new
-            {
-                TotalHours = g.Sum(j => j.QtyHours ?? 0),
-                TotalHoursAmount = g.Sum(j => (j.QtyHours ?? 0) * (j.RateForJob ?? 0)),
-                TotalQuantity = g.Sum(j => j.QtyItems ?? 0),
-                TotalJobAmount = g.Sum(j => (j.QtyItems ?? 0) * (j.RateForJob ?? 0)),
-                GrandTotal = g.Sum(j => ((j.QtyHours ?? 0) * (j.RateForJob ?? 0)) + ((j.QtyItems ?? 0) * (j.RateForJob ?? 0)))
-            }).First();
-
-            worksheet.Cells[rowIndex, 4].Value = totals.TotalHours;
-            worksheet.Cells[rowIndex, 5].Value = totals.TotalHoursAmount;
-            worksheet.Cells[rowIndex, 6].Value = totals.TotalQuantity;
-            worksheet.Cells[rowIndex, 7].Value = totals.TotalJobAmount;
-            worksheet.Cells[rowIndex, 8].Value = totals.GrandTotal;
-
-            // Format totals row
-            for (int i = 4; i <= 8; i++)
-            {
-                worksheet.Cells[rowIndex, i].Style.Font.Bold = true;
-                worksheet.Cells[rowIndex, i].Style.Numberformat.Format = "#,##0.00";
-                worksheet.Cells[rowIndex, i].Style.Border.BorderAround(ExcelBorderStyle.Thin);
-            }
-
-            // Add a separate total row
-            rowIndex++;
-            worksheet.Cells[rowIndex, 1, rowIndex, 7].Merge = true;
-            worksheet.Cells[rowIndex, 8].Value = $"Total: {totals.GrandTotal:N2}";
-            worksheet.Cells[rowIndex, 8].Style.Font.Bold = true;
-            worksheet.Cells[rowIndex, 8].Style.Numberformat.Format = "#,##0.00";
-            worksheet.Cells[rowIndex, 8].Style.Border.BorderAround(ExcelBorderStyle.Thin);
-            worksheet.Cells[rowIndex, 8].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
-
             // Auto-fit columns
-            for (int i = 1; i <= 8; i++)
+            for (int i = 1; i <= headers.Count; i++)
             {
                 worksheet.Column(i).AutoFit();
             }
@@ -679,14 +772,22 @@ public class JobWorkService : IJobWorkService
     {
         try
         {
-            _logger.LogInformation("Starting ExportToPdfAsync with filter: {0}", 
+            _logger.LogInformation("Starting ExportToPdfAsync with filter: {@Filter}", 
                 System.Text.Json.JsonSerializer.Serialize(filter));
             
             // Check if this is an "as on" report (only end date provided)
             bool isAsOnReport = !filter.StartDate.HasValue && filter.EndDate.HasValue;
             
-            _logger.LogInformation("PDF Export Report type: {0}", 
+            _logger.LogInformation("PDF Export Report type: {ReportType}", 
                 isAsOnReport ? "As On Report" : "Date Range Report");
+            
+            // Parse selected columns if provided
+            IEnumerable<string> selectedColumns = new List<string>();
+            if (!string.IsNullOrEmpty(filter.Columns))
+            {
+                selectedColumns = filter.Columns.Split(',').Select(c => c.Trim());
+                _logger.LogInformation("Using selected columns: {Columns}", filter.Columns);
+            }
             
             // Prepare filter for getJobWorksAsync
             var modifiedFilter = new JobWorkFilter
@@ -700,7 +801,8 @@ public class JobWorkService : IJobWorkService
                 Page = 1, 
                 PageSize = int.MaxValue, 
                 SortBy = "employeename",
-                SortOrder = "asc"
+                SortOrder = "asc",
+                Columns = filter.Columns
             };
             
             // Only set StartDate if this is not an "as on" report
@@ -717,7 +819,25 @@ public class JobWorkService : IJobWorkService
                 throw new InvalidOperationException("No data available for PDF generation");
             }
 
-            var jobWorks = response.Data;
+            // Filter out job works with empty employee names
+            var jobWorks = response.Data.Where(jw => !string.IsNullOrWhiteSpace(jw.EmployeeName)).ToList();
+            
+            if (!jobWorks.Any())
+            {
+                _logger.LogWarning("No job works with valid employee names found for export");
+                
+                // Create a simple PDF with a message
+                using var emptyDocument = new Document(PageSize.A4, 50, 50, 50, 50);
+                using var emptyMemoryStream = new MemoryStream();
+                var emptyWriter = PdfWriter.GetInstance(emptyDocument, emptyMemoryStream);
+                emptyDocument.Open();
+                var font = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 14);
+                var paragraph = new Paragraph("No data available", font);
+                paragraph.Alignment = Element.ALIGN_CENTER;
+                emptyDocument.Add(paragraph);
+                emptyDocument.Close();
+                return emptyMemoryStream.ToArray();
+            }
             
             // Create a PDF document in landscape orientation
             using var document = new Document(PageSize.A4.Rotate(), 20, 20, 30, 30);
@@ -746,16 +866,125 @@ public class JobWorkService : IJobWorkService
             title.SpacingAfter = 20f;
             document.Add(title);
 
-            // Create the main table
-            var table = new PdfPTable(8);
+            // Define all possible columns with their property names
+            var allColumns = new Dictionary<string, string>
+            {
+                { "unitName", "Unit" },
+                { "entryDate", "Date" },
+                { "workType", "Type" },
+                { "workName", "Job" },
+                { "qtyHours", "Hours" },
+                { "rateForJob", "Rate/day" },
+                { "qtyItems", "Quantity" },
+                { "totalAmount", "Amount" },
+                { "employeeName", "Employee" },
+                { "jwNo", "Job Work No." },
+                { "groupName", "Group" }, 
+                { "isApproved", "Is Approved" },
+                { "remarks", "Remarks" }
+            };
+            
+            // Determine which columns to include
+            var columnsToInclude = selectedColumns.Any() 
+                ? allColumns.Where(c => selectedColumns.Contains(c.Key)).ToDictionary(c => c.Key, c => c.Value)
+                : new Dictionary<string, string>
+                {
+                    { "unitName", "Unit" },
+                    { "entryDate", "Date" },
+                    { "workType", "Type" },
+                    { "workName", "Job" },
+                    { "qtyHours", "Hours" },
+                    { "rateForJob", "Rate/day" },
+                    { "qtyItems", "Quantity" },
+                    { "totalAmount", "Amount" }
+                };
+            
+            // Ensure employeeName is included and make it the first column after Sr. No.
+            if (columnsToInclude.ContainsKey("employeeName")) {
+                var employeeHeader = columnsToInclude["employeeName"];
+                columnsToInclude.Remove("employeeName");
+                
+                // Create new dictionary with employeeName first, then the rest
+                var reorderedColumns = new Dictionary<string, string>
+                {
+                    { "employeeName", employeeHeader }
+                };
+                
+                foreach (var column in columnsToInclude)
+                {
+                    reorderedColumns.Add(column.Key, column.Value);
+                }
+                
+                columnsToInclude = reorderedColumns;
+            }
+                
+            // Add "Sr. No." as the first column
+            var headers = new List<string> { "Sr. No." };
+            headers.AddRange(columnsToInclude.Values);
+            
+            // Create the main table with appropriate number of columns
+            var table = new PdfPTable(headers.Count);
             table.WidthPercentage = 100;
-            table.SetWidths(new float[] { 5, 8, 20, 10, 12, 10, 12, 12 });
+            
+            // Set column widths based on included columns
+            // Default width for Sr. No.
+            var widths = new List<float> { 5 };
+            
+            foreach (var col in columnsToInclude.Keys)
+            {
+                switch (col)
+                {
+                    case "employeeName":
+                        widths.Add(15);
+                        break;
+                    case "groupName":
+                        widths.Add(10);
+                        break;
+                    case "unitName":
+                        widths.Add(8);
+                        break;
+                    case "entryDate":
+                        widths.Add(8);
+                        break;
+                    case "workType":
+                        widths.Add(8);
+                        break;
+                    case "workName":
+                        widths.Add(15);
+                        break;
+                    case "qtyHours":
+                        widths.Add(8);
+                        break;
+                    case "rateForJob":
+                        widths.Add(8);
+                        break;
+                    case "qtyItems":
+                        widths.Add(8);
+                        break;
+                    case "totalAmount":
+                        widths.Add(10);
+                        break;
+                    case "jwNo":
+                        widths.Add(10);
+                        break;
+                    case "isApproved":
+                        widths.Add(8);
+                        break;
+                    case "remarks":
+                        widths.Add(15);
+                        break;
+                    default:
+                        widths.Add(10);
+                        break;
+                }
+            }
+            
+            table.SetWidths(widths.ToArray());
             table.SpacingBefore = 10f;
             table.SpacingAfter = 10f;
 
             // Add headers
             var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 10);
-            string[] headers = { "Sr. No.", "EMP. No.", "NAME", "HRS", "Total HRS Amt", "Qty", "Total Job Amt", "Total" };
             
             foreach (var header in headers)
             {
@@ -779,53 +1008,103 @@ public class JobWorkService : IJobWorkService
 
             var regularFont = FontFactory.GetFont(FontFactory.HELVETICA, 9);
             int srNo = 1;
-            decimal totalHoursAll = 0;
-            decimal totalHoursAmtAll = 0;
-            decimal totalQtyAll = 0;
-            decimal totalJobAmtAll = 0;
-            decimal grandTotalAll = 0;
 
             // Add data rows
             foreach (var group in groupedData)
             {
                 decimal totalHours = group.Sum(j => j.QtyHours ?? 0);
-                decimal totalHoursAmount = group.Sum(j => (j.QtyHours ?? 0) * (j.RateForJob ?? 0));
                 decimal totalQuantity = group.Sum(j => j.QtyItems ?? 0);
-                decimal totalJobAmount = group.Sum(j => (j.QtyItems ?? 0) * (j.RateForJob ?? 0));
-                decimal rowTotal = totalHoursAmount + totalJobAmount;
+                decimal rowTotal = group.Sum(j => j.TotalAmount ?? 0);
 
-                // Update running totals
-                totalHoursAll += totalHours;
-                totalHoursAmtAll += totalHoursAmount;
-                totalQtyAll += totalQuantity;
-                totalJobAmtAll += totalJobAmount;
-                grandTotalAll += rowTotal;
-
-                // Add row data
+                // Add serial number
                 AddCell(table, srNo.ToString(), regularFont, Element.ALIGN_CENTER);
-                AddCell(table, group.Key.EmployeeId, regularFont, Element.ALIGN_CENTER);
-                AddCell(table, group.Key.EmployeeName, regularFont, Element.ALIGN_LEFT);
-                AddCell(table, totalHours.ToString("N2"), regularFont, Element.ALIGN_RIGHT);
-                AddCell(table, totalHoursAmount.ToString("N2"), regularFont, Element.ALIGN_RIGHT);
-                AddCell(table, totalQuantity.ToString("N2"), regularFont, Element.ALIGN_RIGHT);
-                AddCell(table, totalJobAmount.ToString("N2"), regularFont, Element.ALIGN_RIGHT);
-                AddCell(table, rowTotal.ToString("N2"), regularFont, Element.ALIGN_RIGHT);
+                
+                // Add selected columns
+                foreach (var column in columnsToInclude.Keys)
+                {
+                    if (column == "unitName")
+                    {
+                        AddCell(table, group.First().UnitName ?? "", regularFont, 
+                            Element.ALIGN_LEFT);
+                    }
+                    else if (column == "entryDate")
+                    {
+                        // Group might have multiple entry dates, show the range or the first one
+                        var firstEntryDate = group.Min(j => j.EntryDate);
+                        AddCell(table, firstEntryDate?.ToString("dd/MM/yyyy") ?? "", regularFont, 
+                            Element.ALIGN_CENTER);
+                    }
+                    else if (column == "employeeName")
+                    {
+                        AddCell(table, group.Key.EmployeeName, regularFont, Element.ALIGN_LEFT);
+                    }
+                    else if (column == "workType")
+                    {
+                        // Take the first work type or show "Multiple" if there are different types
+                        var workTypes = group.Select(j => j.WorkType).Distinct();
+                        AddCell(table, workTypes.Count() == 1 
+                            ? workTypes.First() ?? ""
+                            : "Multiple", regularFont, Element.ALIGN_LEFT);
+                    }
+                    else if (column == "workName")
+                    {
+                        // Take the first work name or show "Multiple" if there are different names
+                        var workNames = group.Select(j => j.WorkName).Distinct();
+                        AddCell(table, workNames.Count() == 1 
+                            ? workNames.First() ?? "" 
+                            : "Multiple Jobs", regularFont, Element.ALIGN_LEFT);
+                    }
+                    else if (column == "qtyHours")
+                    {
+                        AddCell(table, totalHours.ToString("N2"), regularFont, Element.ALIGN_RIGHT);
+                    }
+                    else if (column == "rateForJob")
+                    {
+                        // Calculate average rate or show as is
+                        var avgRate = group.Average(j => j.RateForJob ?? 0) * 8; // Daily rate
+                        AddCell(table, avgRate.ToString("N2"), regularFont, Element.ALIGN_RIGHT);
+                    }
+                    else if (column == "qtyItems")
+                    {
+                        AddCell(table, totalQuantity.ToString("N2"), regularFont, Element.ALIGN_RIGHT);
+                    }
+                    else if (column == "totalAmount")
+                    {
+                        AddCell(table, rowTotal.ToString("N2"), regularFont, Element.ALIGN_RIGHT);
+                    }
+                    else if (column == "jwNo")
+                    {
+                        var jwNos = group.Select(j => j.JwNo).Distinct();
+                        AddCell(table, jwNos.Count() == 1 
+                            ? jwNos.First() ?? "" 
+                            : "Multiple", regularFont, Element.ALIGN_LEFT);
+                    }
+                    else if (column == "groupName")
+                    {
+                        var groupNames = group.Select(j => j.GroupName).Distinct();
+                        AddCell(table, groupNames.Count() == 1 
+                            ? groupNames.First() ?? "" 
+                            : "Multiple", regularFont, Element.ALIGN_LEFT);
+                    }
+                    else if (column == "isApproved")
+                    {
+                        var allApproved = group.All(j => j.IsApproved == true);
+                        var noneApproved = group.All(j => j.IsApproved == false);
+                        AddCell(table, allApproved ? "Yes" : (noneApproved ? "No" : "Partial"), 
+                            regularFont, Element.ALIGN_CENTER);
+                    }
+                    else if (column == "remarks")
+                    {
+                        // Take the first remarks or show truncated if there are different remarks
+                        var remarks = group.Select(j => j.Remarks).Distinct();
+                        AddCell(table, remarks.Count() == 1 
+                            ? remarks.First() ?? ""
+                            : "Multiple remarks...", regularFont, Element.ALIGN_LEFT);
+                    }
+                }
 
                 srNo++;
             }
-
-            // Add total row
-            var totalFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 9);
-            AddCell(table, "Total", totalFont, Element.ALIGN_CENTER, colspan: 3);
-            AddCell(table, totalHoursAll.ToString("N2"), totalFont, Element.ALIGN_RIGHT);
-            AddCell(table, totalHoursAmtAll.ToString("N2"), totalFont, Element.ALIGN_RIGHT);
-            AddCell(table, totalQtyAll.ToString("N2"), totalFont, Element.ALIGN_RIGHT);
-            AddCell(table, totalJobAmtAll.ToString("N2"), totalFont, Element.ALIGN_RIGHT);
-            AddCell(table, grandTotalAll.ToString("N2"), totalFont, Element.ALIGN_RIGHT);
-
-            // Add a separate total row with all cells merged except the last one
-            AddCell(table, "", totalFont, Element.ALIGN_RIGHT, colspan: 7);
-            AddCell(table, $"Total: {grandTotalAll:N2}", totalFont, Element.ALIGN_RIGHT);
 
             document.Add(table);
             document.Close();
@@ -841,210 +1120,301 @@ public class JobWorkService : IJobWorkService
 
     public async Task<byte[]> ExportSummaryToPdfAsync(JobWorkFilter filter)
     {
-        try
-        {
-            _logger.LogInformation("Starting ExportSummaryToPdfAsync with filter: {0}", 
-                System.Text.Json.JsonSerializer.Serialize(filter));
-            
-            // Check if this is an "as on" report (only end date provided)
-            bool isAsOnReport = !filter.StartDate.HasValue && filter.EndDate.HasValue;
-            
-            _logger.LogInformation("Summary PDF Export Report type: {0}", 
-                isAsOnReport ? "As On Report" : "Date Range Report");
-            
-            // Default to today for end date if not provided
-            if (!filter.EndDate.HasValue)
-            {
-                filter.EndDate = DateTime.Today;
-                _logger.LogInformation("No end date provided, defaulting to today ({0})", 
-                    DateTime.Today);
-            }
+        _logger.LogInformation("Starting ExportSummaryToPdfAsync with filter: {@Filter}", filter);
         
-            // Get the job works summary - this already handles filtering out empty employee names
-            var summary = await GetJobWorkSummaryAsync(filter);
-            
-            if (summary == null)
-            {
-                _logger.LogWarning("No summary data available for export");
-                throw new InvalidOperationException("No data available for PDF summary generation");
-            }
-            
-            if (summary.EmployeeSummaries == null || !summary.EmployeeSummaries.Any())
-            {
-                _logger.LogWarning("No employee summary data available for export");
-                throw new InvalidOperationException("No employee data available for PDF summary generation");
-            }
-            
-            // Create a PDF document in landscape orientation
-            using var document = new Document(PageSize.A4.Rotate(), 20, 20, 30, 30);
-            using var memoryStream = new MemoryStream();
-            
+        bool isAsOnReport = filter.StartDate == null && filter.EndDate != null;
+        _logger.LogInformation(isAsOnReport ? "Generating As On Report" : "Generating Date Range Report");
+        
+        if (filter.EndDate == null)
+        {
+            filter.EndDate = DateTime.Today;
+            _logger.LogInformation("No end date provided, defaulting to today: {EndDate}", filter.EndDate);
+        }
+        
+        var modifiedFilter = new JobWorkFilter
+        {
+            EndDate = filter.EndDate,
+            Columns = filter.Columns
+        };
+        
+        // Only add StartDate if it's not an "As On" report
+        if (!isAsOnReport && filter.StartDate.HasValue)
+        {
+            modifiedFilter.StartDate = filter.StartDate;
+            _logger.LogInformation("Using date range from {StartDate} to {EndDate}", 
+                modifiedFilter.StartDate, modifiedFilter.EndDate);
+        }
+        else
+        {
+            _logger.LogInformation("As On Report for date: {EndDate}", modifiedFilter.EndDate);
+        }
+        
+        var summaryData = await GetJobWorkSummaryAsync(modifiedFilter);
+        var reportTitle = isAsOnReport
+            ? $"Job Work Summary As On {filter.EndDate:dd/MM/yyyy}"
+            : $"Job Work Summary From {filter.StartDate:dd/MM/yyyy} To {filter.EndDate:dd/MM/yyyy}";
+        
+        List<string> selectedColumnIds = new List<string>();
+        if (!string.IsNullOrEmpty(filter.Columns))
+        {
             try
             {
-                var writer = PdfWriter.GetInstance(document, memoryStream);
-                
-                // Add page number event handler
-                writer.PageEvent = new PageNumberHandler();
-                
-                document.Open();
-                
-                // Add title
-                var titleFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 14);
-                var title = new Paragraph($"JOB WORK SUMMARY REPORT", titleFont);
-                title.Alignment = Element.ALIGN_CENTER;
-                document.Add(title);
-                
-                // Add date range subtitle
-                var subtitleFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 12);
-                string dateRangeText = string.Empty;
-                
-                try 
+                // Check if the columns are JSON format or comma-separated
+                if (filter.Columns.StartsWith("["))
                 {
-                    if (isAsOnReport)
-                    {
-                        // For "as on" reports
-                        dateRangeText = $"AS ON {filter.EndDate:dd-MMM-yyyy}";
-                    }
-                    else if (filter.StartDate.HasValue && filter.EndDate.HasValue)
-                    {
-                        // For date range reports
-                        dateRangeText = $"Period: {filter.StartDate:dd-MMM-yyyy} TO {filter.EndDate:dd-MMM-yyyy}";
-                    }
-                    else
-                    {
-                        // Fallback
-                        dateRangeText = $"AS ON {DateTime.Today:dd-MMM-yyyy}";
-                    }
+                    selectedColumnIds = JsonSerializer.Deserialize<List<string>>(filter.Columns);
                 }
-                catch 
+                else
                 {
-                    // Fallback to a simple date format if formatting fails
-                    dateRangeText = $"Period: {filter.StartDate?.ToString("yyyy-MM-dd") ?? "N/A"} TO {filter.EndDate?.ToString("yyyy-MM-dd") ?? "N/A"}";
+                    // Handle comma-separated format
+                    selectedColumnIds = filter.Columns.Split(',').Select(c => c.Trim()).ToList();
                 }
                 
-                var subtitle = new Paragraph(dateRangeText, subtitleFont);
-                subtitle.Alignment = Element.ALIGN_CENTER;
-                subtitle.SpacingAfter = 20f;
-                document.Add(subtitle);
-                
-                // Create the main table
-                var table = new PdfPTable(8);
-                table.WidthPercentage = 100;
-                table.SetWidths(new float[] { 5, 8, 20, 10, 12, 10, 12, 12 });
-                table.SpacingBefore = 10f;
-                table.SpacingAfter = 10f;
-
-                // Add headers
-                var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 10);
-                string[] headers = { "Sr. No.", "EMP. No.", "NAME", "HRS", "Total HRS Amt", "Qty", "Total Job Amt", "Total" };
-                
-                foreach (var header in headers)
-                {
-                    var cell = new PdfPCell(new Phrase(header, headerFont));
-                    cell.HorizontalAlignment = Element.ALIGN_CENTER;
-                    cell.VerticalAlignment = Element.ALIGN_MIDDLE;
-                    cell.BackgroundColor = new BaseColor(240, 240, 240);
-                    cell.PaddingTop = 5f;
-                    cell.PaddingBottom = 5f;
-                    cell.MinimumHeight = 25f;
-                    table.AddCell(cell);
-                }
-
-                var regularFont = FontFactory.GetFont(FontFactory.HELVETICA, 9);
-                int srNo = 1;
-
-                // Add data rows
-                foreach (var employeeSummary in summary.EmployeeSummaries)
-                {
-                    // Add row data
-                    AddCell(table, srNo.ToString(), regularFont, Element.ALIGN_CENTER);
-                    AddCell(table, employeeSummary.EmployeeId ?? "N/A", regularFont, Element.ALIGN_CENTER);
-                    AddCell(table, employeeSummary.EmployeeName ?? "Unknown", regularFont, Element.ALIGN_LEFT);
-                    AddCell(table, employeeSummary.Hours.ToString("N2"), regularFont, Element.ALIGN_RIGHT);
-                    AddCell(table, employeeSummary.HoursAmount.ToString("N2"), regularFont, Element.ALIGN_RIGHT);
-                    AddCell(table, employeeSummary.Quantity.ToString("N2"), regularFont, Element.ALIGN_RIGHT);
-                    AddCell(table, employeeSummary.JobAmount.ToString("N2"), regularFont, Element.ALIGN_RIGHT);
-                    AddCell(table, employeeSummary.Total.ToString("N2"), regularFont, Element.ALIGN_RIGHT);
-
-                    srNo++;
-                }
-
-                // Add total row
-                var totalFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 9);
-                AddCell(table, "Total", totalFont, Element.ALIGN_CENTER, colspan: 3);
-                AddCell(table, summary.TotalHours.ToString("N2"), totalFont, Element.ALIGN_RIGHT);
-                AddCell(table, summary.TotalHoursAmount.ToString("N2"), totalFont, Element.ALIGN_RIGHT);
-                AddCell(table, summary.TotalQuantity.ToString("N2"), totalFont, Element.ALIGN_RIGHT);
-                AddCell(table, summary.TotalJobAmount.ToString("N2"), totalFont, Element.ALIGN_RIGHT);
-                AddCell(table, summary.GrandTotal.ToString("N2"), totalFont, Element.ALIGN_RIGHT);
-
-                // Add a separate total row with all cells merged except the last one
-                AddCell(table, "", totalFont, Element.ALIGN_RIGHT, colspan: 7);
-                AddCell(table, $"Total: {summary.GrandTotal:N2}", totalFont, Element.ALIGN_RIGHT);
-
-                document.Add(table);
-                
-                // Add footer with totals
-                var footerTable = new PdfPTable(2);
-                footerTable.WidthPercentage = 50;
-                footerTable.HorizontalAlignment = Element.ALIGN_RIGHT;
-                footerTable.SpacingBefore = 20f;
-                
-                var footerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 10);
-                
-                // Add total records
-                var cell1 = new PdfPCell(new Phrase("Total Records:", footerFont));
-                cell1.Border = Rectangle.NO_BORDER;
-                cell1.HorizontalAlignment = Element.ALIGN_LEFT;
-                footerTable.AddCell(cell1);
-                
-                var cell2 = new PdfPCell(new Phrase(summary.TotalRecords.ToString(), footerFont));
-                cell2.Border = Rectangle.NO_BORDER;
-                cell2.HorizontalAlignment = Element.ALIGN_RIGHT;
-                footerTable.AddCell(cell2);
-                
-                document.Add(footerTable);
-                
-                // Add generation timestamp
-                var timestampFont = FontFactory.GetFont(FontFactory.HELVETICA, 8);
-                var timestamp = new Paragraph($"Generated on: {DateTime.Now:dd-MMM-yyyy HH:mm:ss}", timestampFont);
-                timestamp.Alignment = Element.ALIGN_CENTER;
-                timestamp.SpacingBefore = 10f;
-                document.Add(timestamp);
-                
-                document.Close();
-                
-                return memoryStream.ToArray();
+                _logger.LogInformation("Original selected columns: {SelectedColumns}", string.Join(", ", selectedColumnIds));
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating PDF document: {Message}", ex.Message);
+                _logger.LogWarning(ex, "Failed to parse selected columns, defaulting to all columns");
+                selectedColumnIds = new List<string>();
+            }
+        }
+        
+        // Map frontend column IDs to backend column IDs
+        var columnMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "unit", "unitName" },
+            { "date", "entryDate" },
+            { "type", "workType" },
+            { "job", "workName" },
+            { "hours", "qtyHours" },
+            { "rate/day", "rateForJob" },
+            { "quantity", "qtyItems" },
+            { "amount", "totalAmount" },
+            { "employee", "employeeName" }
+        };
+        
+        // Map the selected columns to backend column IDs
+        var mappedColumnIds = selectedColumnIds.Select(id => 
+            columnMappings.TryGetValue(id, out var mappedId) ? mappedId : id).ToList();
+        
+        _logger.LogInformation("Mapped selected columns: {MappedColumns}", string.Join(", ", mappedColumnIds));
+        
+        // If no columns selected, use default columns
+        if (mappedColumnIds.Count == 0)
+        {
+            mappedColumnIds = new List<string>
+            {
+                "employeeName", "qtyHours", "totalAmount", "qtyItems"
+            };
+            _logger.LogInformation("No columns selected, using default columns");
+        }
+        
+        // Always include employee name and ensure it's the first column
+        if (mappedColumnIds.Contains("employeeName"))
+        {
+            // Remove it from its current position
+            mappedColumnIds.Remove("employeeName");
+        }
+        // Add it at the beginning
+        mappedColumnIds.Insert(0, "employeeName");
+        _logger.LogInformation("Ensuring employeeName column is first for identification");
+        
+        using (var ms = new MemoryStream())
+        {
+            try
+            {
+                var document = new Document(PageSize.A4.Rotate(), 10f, 10f, 50f, 10f);
+                var writer = PdfWriter.GetInstance(document, ms);
                 
-                // Ensure document is closed
-                if (document.IsOpen())
+                document.Open();
+                
+                // Add logo if available
+                string logoPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "logo.png");
+                if (File.Exists(logoPath))
                 {
-                    document.Close();
+                    var logo = Image.GetInstance(logoPath);
+                    logo.ScaleToFit(100f, 100f);
+                    logo.Alignment = Element.ALIGN_LEFT;
+                    document.Add(logo);
+                    document.Add(new Paragraph(" "));
                 }
                 
+                // Add title
+                var titleFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 16);
+                var title = new Paragraph(reportTitle, titleFont);
+                title.Alignment = Element.ALIGN_CENTER;
+                document.Add(title);
+                document.Add(new Paragraph(" "));
+                
+                if (summaryData.EmployeeSummaries.Any())
+                {
+                    // Column definitions with their corresponding display names and widths
+                    var columnDefinitions = new Dictionary<string, (string DisplayName, float Width)>
+                    {
+                        { "employeeName", ("Employee", 3f) },
+                        { "unitName", ("Unit", 1.5f) },
+                        { "entryDate", ("Date", 1.5f) },
+                        { "workType", ("Type", 1.5f) },
+                        { "workName", ("Job", 2f) },
+                        { "qtyHours", ("Hours", 1.5f) },
+                        { "rateForJob", ("Rate/day", 1.5f) },
+                        { "qtyItems", ("Quantity", 1.5f) },
+                        { "totalAmount", ("Amount", 2f) },
+                        { "hoursAmount", ("Hours Amount", 2f) },
+                        { "jobAmount", ("Job Amount", 2f) }
+                    };
+                    
+                    _logger.LogInformation("Using columns for PDF: {Columns}", 
+                        string.Join(", ", mappedColumnIds.Select(id => 
+                            columnDefinitions.ContainsKey(id) ? columnDefinitions[id].DisplayName : id)));
+                    
+                    // Calculate total relative width of selected columns
+                    float totalWidth = mappedColumnIds.Sum(id => 
+                        columnDefinitions.ContainsKey(id) ? columnDefinitions[id].Width : 1f);
+                    
+                    // Create PDF table with the correct number of columns
+                    var table = new PdfPTable(mappedColumnIds.Count);
+                    table.WidthPercentage = 100;
+                    
+                    // Set relative column widths
+                    float[] columnWidths = mappedColumnIds.Select(id => 
+                        columnDefinitions.ContainsKey(id) ? columnDefinitions[id].Width / totalWidth : 1f / totalWidth).ToArray();
+                    
+                    table.SetWidths(columnWidths);
+                    
+                    var headerFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 10);
+                    var cellFont = FontFactory.GetFont(FontFactory.HELVETICA, 9);
+                    
+                    // Add headers based on selected columns
+                    foreach (var columnId in mappedColumnIds)
+                    {
+                        if (columnDefinitions.ContainsKey(columnId))
+                        {
+                            AddHeaderCell(table, columnDefinitions[columnId].DisplayName, headerFont);
+                        }
+                        else
+                        {
+                            // Convert to Title Case for display
+                            var headerText = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(columnId);
+                            AddHeaderCell(table, headerText, headerFont);
+                        }
+                    }
+                    
+                    // Add data rows
+                    foreach (var employee in summaryData.EmployeeSummaries.Where(e => !string.IsNullOrEmpty(e.EmployeeName)))
+                    {
+                        foreach (var columnId in mappedColumnIds)
+                        {
+                            switch (columnId.ToLowerInvariant())
+                            {
+                                case "employeename":
+                                    AddCell(table, employee.EmployeeName, cellFont, Element.ALIGN_LEFT);
+                                    break;
+                                case "qtyhours":
+                                    AddCell(table, employee.Hours.ToString("F2"), cellFont, Element.ALIGN_RIGHT);
+                                    break;
+                                case "totalamount":
+                                    AddCell(table, employee.Total.ToString("C2"), cellFont, Element.ALIGN_RIGHT);
+                                    break;
+                                case "qtyitems":
+                                    AddCell(table, employee.Quantity.ToString("F2"), cellFont, Element.ALIGN_RIGHT);
+                                    break;
+                                case "hoursamount":
+                                    AddCell(table, employee.HoursAmount.ToString("C2"), cellFont, Element.ALIGN_RIGHT);
+                                    break;
+                                case "jobamount":
+                                    AddCell(table, employee.JobAmount.ToString("C2"), cellFont, Element.ALIGN_RIGHT);
+                                    break;
+                                // For summary fields with aggregated values
+                                case "unitname":
+                                case "entrydate":
+                                case "worktype":
+                                case "workname":
+                                case "rateforjob":
+                                case "jwno":
+                                case "groupname":
+                                case "isapproved":
+                                case "remarks":
+                                    AddCell(table, "---", cellFont, Element.ALIGN_CENTER);
+                                    break;
+                                default:
+                                    AddCell(table, "", cellFont, Element.ALIGN_CENTER);
+                                    break;
+                            }
+                        }
+                    }
+                    
+                    // Add totals row
+                    foreach (var columnId in mappedColumnIds)
+                    {
+                        switch (columnId.ToLowerInvariant())
+                        {
+                            case "employeename":
+                                AddCell(table, "Total", headerFont, Element.ALIGN_LEFT);
+                                break;
+                            case "qtyhours":
+                                AddCell(table, summaryData.TotalHours.ToString("F2"), headerFont, Element.ALIGN_RIGHT);
+                                break;
+                            case "totalamount":
+                                AddCell(table, summaryData.GrandTotal.ToString("C2"), headerFont, Element.ALIGN_RIGHT);
+                                break;
+                            case "qtyitems":
+                                AddCell(table, summaryData.TotalQuantity.ToString("F2"), headerFont, Element.ALIGN_RIGHT);
+                                break;
+                            case "hoursamount":
+                                AddCell(table, summaryData.TotalHoursAmount.ToString("C2"), headerFont, Element.ALIGN_RIGHT);
+                                break;
+                            case "jobamount":
+                                AddCell(table, summaryData.TotalJobAmount.ToString("C2"), headerFont, Element.ALIGN_RIGHT);
+                                break;
+                            default:
+                                AddCell(table, "", headerFont, Element.ALIGN_CENTER);
+                                break;
+                        }
+                    }
+                    
+                    document.Add(table);
+                }
+                else
+                {
+                    var noDataFont = FontFactory.GetFont(FontFactory.HELVETICA, 12);
+                    var noDataParagraph = new Paragraph("No data available for the selected criteria.", noDataFont);
+                    noDataParagraph.Alignment = Element.ALIGN_CENTER;
+                    document.Add(noDataParagraph);
+                }
+                
+                document.Close();
+                writer.Close();
+                
+                _logger.LogInformation("Successfully generated PDF summary report");
+                return ms.ToArray();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating PDF summary report");
                 throw;
             }
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error exporting summary to PDF: {Message}", ex.Message);
-            throw;
-        }
+    }
+    
+    private void AddHeaderCell(PdfPTable table, string text, Font font)
+    {
+        var cell = new PdfPCell(new Phrase(text, font));
+        cell.HorizontalAlignment = Element.ALIGN_CENTER;
+        cell.VerticalAlignment = Element.ALIGN_MIDDLE;
+        cell.BackgroundColor = new BaseColor(240, 240, 240);
+        cell.Padding = 3;
+        cell.MinimumHeight = 18f;
+        table.AddCell(cell);
     }
 
     private void AddCell(PdfPTable table, string text, Font font, int alignment, int colspan = 1)
     {
-        var cell = new PdfPCell(new Phrase(text, font))
-        {
-            HorizontalAlignment = alignment,
-            VerticalAlignment = Element.ALIGN_MIDDLE,
-            Padding = 5,
-            Colspan = colspan
-        };
+        var cell = new PdfPCell(new Phrase(text, font));
+        cell.HorizontalAlignment = alignment;
+        cell.VerticalAlignment = Element.ALIGN_MIDDLE;
+        cell.Padding = 3;
+        cell.Colspan = colspan;
         table.AddCell(cell);
     }
 
