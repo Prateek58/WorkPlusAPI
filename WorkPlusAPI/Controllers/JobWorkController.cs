@@ -81,8 +81,41 @@ public class JobWorkController : ControllerBase
     [HttpGet("export/pdf")]
     public async Task<IActionResult> ExportToPdf([FromQuery] JobWorkFilter filter)
     {
-        var fileBytes = await _jobWorkService.ExportToPdfAsync(filter);
-        return File(fileBytes, "application/pdf", "jobworks.pdf");
+        try
+        {
+            var fileBytes = await _jobWorkService.ExportToPdfAsync(filter);
+            if (fileBytes == null || fileBytes.Length == 0)
+            {
+                _logger.LogError("PDF generation failed: Empty byte array returned");
+                return StatusCode(500, "Failed to generate PDF");
+            }
+            return File(fileBytes, "application/pdf", $"jobworks_{DateTime.Now:yyyyMMdd_HHmmss}.pdf");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating PDF: {Message}", ex.Message);
+            return StatusCode(500, $"Failed to generate PDF: {ex.Message}");
+        }
+    }
+
+    [HttpGet("export/summary")]
+    public async Task<IActionResult> ExportSummaryToPdf([FromQuery] JobWorkFilter filter)
+    {
+        try
+        {
+            var fileBytes = await _jobWorkService.ExportSummaryToPdfAsync(filter);
+            if (fileBytes == null || fileBytes.Length == 0)
+            {
+                _logger.LogError("Summary PDF generation failed: Empty byte array returned");
+                return StatusCode(500, "Failed to generate summary PDF");
+            }
+            return File(fileBytes, "application/pdf", $"jobwork_summary_{DateTime.Now:yyyyMMdd_HHmmss}.pdf");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating summary PDF: {Message}", ex.Message);
+            return StatusCode(500, $"Failed to generate summary PDF: {ex.Message}");
+        }
     }
 
     [HttpGet("employees")]

@@ -11,5 +11,6 @@ public interface IJobWorkService
     Task<JobWorkSummaryDto> GetJobWorkSummaryAsync(JobWorkFilter filter);
     Task<byte[]> ExportToExcelAsync(JobWorkFilter filter);
     Task<byte[]> ExportToPdfAsync(JobWorkFilter filter);
+    Task<byte[]> ExportSummaryToPdfAsync(JobWorkFilter filter);
     Task<IEnumerable<EmployeeDto>> SearchEmployeesAsync(string searchTerm);
 } 

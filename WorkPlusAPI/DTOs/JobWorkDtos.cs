@@ -7,6 +7,7 @@ public interface IJobWorkDto
     DateTime? EntryDate { get; set; }
     string? JwNo { get; set; }
     string? WorkName { get; set; }
+    string? EmployeeId { get; set; }
     string? EmployeeName { get; set; }
     string? UnitName { get; set; }
     string? WorkType { get; set; }
@@ -73,6 +74,7 @@ public class JobWorkDto : IJobWorkDto
     public DateTime? EntryDate { get; set; }
     public string? JwNo { get; set; }
     public string? WorkName { get; set; }
+    public string? EmployeeId { get; set; }
     public string? EmployeeName { get; set; }
     public string? UnitName { get; set; }
     public string? WorkType { get; set; }
@@ -92,13 +94,47 @@ public class JobWorkDto : IJobWorkDto
 public class JobWorkSummaryDto
 {
     public decimal TotalHours { get; set; }
+    public decimal TotalHoursAmount { get; set; }
     public decimal TotalQuantity { get; set; }
-    public decimal TotalAmount { get; set; }
+    public decimal TotalJobAmount { get; set; }
+    public decimal GrandTotal { get; set; }
     public int TotalRecords { get; set; }
+    public List<EmployeeSummary> EmployeeSummaries { get; set; } = new List<EmployeeSummary>();
+}
+
+public class EmployeeSummary
+{
+    public string EmployeeId { get; set; } = string.Empty;
+    public string EmployeeName { get; set; } = string.Empty;
+    public decimal Hours { get; set; }
+    public decimal HoursAmount { get; set; }
+    public decimal Quantity { get; set; }
+    public decimal JobAmount { get; set; }
+    public decimal Total { get; set; }
+    public List<WorkSummary>? WorkSummaries { get; set; } = new List<WorkSummary>();
 }
 
 public class JobWorkResponse
 {
-    public List<IJobWorkDto> Data { get; set; } = new List<IJobWorkDto>();
+    public List<JobWorkDto> Data { get; set; } = new List<JobWorkDto>();
     public int Total { get; set; }
+}
+
+public class WorkSummary
+{
+    public string? WorkName { get; set; }
+    public decimal? TotalHours { get; set; }
+    public decimal? TotalAmount { get; set; }
+    public decimal? TotalItems { get; set; }
+}
+
+public class JobWorkSummaryResponse
+{
+    public decimal TotalHours { get; set; }
+    public decimal TotalAmount { get; set; }
+    public decimal TotalItems { get; set; }
+    public decimal TotalJobAmount { get; set; }
+    public decimal GrandTotal { get; set; }
+    public int TotalRecords { get; set; }
+    public List<EmployeeSummary> EmployeeSummaries { get; set; } = new List<EmployeeSummary>();
 } 
