@@ -8,6 +8,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="WorkPlus\NewFolder\**" />
+    <Content Remove="WorkPlus\NewFolder\**" />
+    <EmbeddedResource Remove="WorkPlus\NewFolder\**" />
+    <None Remove="WorkPlus\NewFolder\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="EPPlus" Version="7.7.0" />
     <PackageReference Include="iTextSharp" Version="5.5.13.4" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.3" />
@@ -22,6 +29,15 @@
     </PackageReference>
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="8.0.3" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Archive\Services\Workplus\" />
+    <Folder Include="WorkPlus\Controllers\" />
+    <Folder Include="WorkPlus\Data\" />
+    <Folder Include="WorkPlus\DTOs\" />
+    <Folder Include="WorkPlus\Model\" />
+    <Folder Include="WorkPlus\Service\" />
   </ItemGroup>
 
 </Project>

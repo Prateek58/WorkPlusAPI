@@ -4,8 +4,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using WorkPlusAPI.Data;
-using WorkPlusAPI.Services;
 using OfficeOpenXml;
+using WorkPlusAPI.Archive.Services;
+using WorkPlusAPI.Archive.Data.Workplus;
+using WorkPlusAPI.Archive.Services.Archive;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -46,7 +48,7 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // Configure DbContext
-builder.Services.AddDbContext<WorkPlusContext>(options =>
+builder.Services.AddDbContext<LoginWorkPlusContext>(options =>
     options.UseMySql(
         builder.Configuration.GetConnectionString("WorkPlusConnection"),
         ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("WorkPlusConnection"))
