@@ -8,6 +8,8 @@ using OfficeOpenXml;
 using WorkPlusAPI.Archive.Services;
 using WorkPlusAPI.Archive.Data.Workplus;
 using WorkPlusAPI.Archive.Services.Archive;
+using WorkPlusAPI.WorkPlus.Service;
+using WorkPlusAPI.WorkPlus.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -55,17 +57,26 @@ builder.Services.AddDbContext<LoginWorkPlusContext>(options =>
     )
 );
 
+// Add WorkPlus DbContext
+builder.Services.AddDbContext<WorkPlusContext>(options =>
+    options.UseMySql(
+        builder.Configuration.GetConnectionString("WorkPlusConnection"),
+        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("WorkPlusConnection"))
+    )
+);
+
+// Add Archive DbContext
 builder.Services.AddDbContext<ArchiveContext>(options =>
     options.UseMySql(
         builder.Configuration.GetConnectionString("ArchiveConnection"),
-        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("ArchiveConnection")),
-        b => b.MigrationsAssembly("WorkPlusAPI")
+        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("ArchiveConnection"))
     )
 );
 
 // Register services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IJobWorkService, JobWorkService>();
+builder.Services.AddScoped<IJobEntryService, JobEntryService>();
 
 // Configure JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
