@@ -21,7 +21,7 @@ public partial class JobEntry
 
     public decimal? HoursTaken { get; set; }
 
-    public decimal RatePerJob { get; set; }
+    public decimal? RatePerJob { get; set; }
 
     public decimal? ExpectedHours { get; set; }
 

@@ -34,43 +34,34 @@ namespace WorkPlusAPI.WorkPlus.Service
                     })
                     .ToListAsync();
 
-                // Log the SQL query for debugging
-                var jobsQuery = _context.Jobs
-                    .AsQueryable();
-                
+                var jobsQuery = _context.Jobs.AsQueryable();
                 _logger.LogInformation("SQL Query: {SQL}", jobsQuery.ToQueryString());
 
-                var jobs = await jobsQuery
-                    .Select(j => new JobDTO
-                    {
-                        JobId = j.JobId,
-                        JobName = j.JobName,
-                        RatePerItem = j.RatePerItem,
-                        RatePerHour = j.RatePerHour,
-                        ExpectedHours = j.ExpectedHours,
-                        ExpectedItemsPerHour = j.ExpectedItemsPerHour,
-                        IncentiveBonusRate = j.IncentiveBonusRate,
-                        PenaltyRate = j.PenaltyRate,
-                        IncentiveType = j.IncentiveType
-                    })
-                    .ToListAsync();
-                
-                // Log the job data for debugging
+                var jobs = await jobsQuery.Select(j => new JobDTO
+                {
+                    JobId = j.JobId,
+                    JobName = j.JobName,
+                    RatePerItem = j.RatePerItem,
+                    RatePerHour = j.RatePerHour,
+                    ExpectedHours = j.ExpectedHours,
+                    ExpectedItemsPerHour = j.ExpectedItemsPerHour,
+                    IncentiveBonusRate = j.IncentiveBonusRate,
+                    PenaltyRate = j.PenaltyRate,
+                    IncentiveType = j.IncentiveType
+                }).ToListAsync();
+
                 foreach (var job in jobs)
                 {
                     _logger.LogInformation(
-                        "Job {JobId} loaded: JobName={JobName}, RatePerItem={RatePerItem}, RatePerHour={RatePerHour}, " +
-                        "ExpectedHours={ExpectedHours}, ExpectedItemsPerHour={ExpectedItemsPerHour}",
+                        "Job {JobId} loaded: JobName={JobName}, RatePerItem={RatePerItem}, RatePerHour={RatePerHour}, ExpectedHours={ExpectedHours}, ExpectedItemsPerHour={ExpectedItemsPerHour}",
                         job.JobId, job.JobName, job.RatePerItem, job.RatePerHour, job.ExpectedHours, job.ExpectedItemsPerHour);
                 }
 
-                var jobGroups = await _context.JobGroups
-                    .Select(g => new JobGroupDTO
-                    {
-                        GroupId = g.GroupId,
-                        GroupName = g.GroupName
-                    })
-                    .ToListAsync();
+                var jobGroups = await _context.JobGroups.Select(g => new JobGroupDTO
+                {
+                    GroupId = g.GroupId,
+                    GroupName = g.GroupName
+                }).ToListAsync();
 
                 return new JobEntryMasterDataDTO
                 {
@@ -90,18 +81,30 @@ namespace WorkPlusAPI.WorkPlus.Service
         {
             try
             {
-                _logger.LogInformation("Creating new job entry: {JobEntry}", 
-                    System.Text.Json.JsonSerializer.Serialize(jobEntry));
-                
-                // Set creation time
+                _logger.LogInformation("Creating new job entry: {JobEntry}", System.Text.Json.JsonSerializer.Serialize(jobEntry));
                 jobEntry.CreatedAt = DateTime.Now;
-                
-                // Use the simplified incentive calculation
-                await CalculateSimpleIncentiveAsync(jobEntry);
-                
+
+                var job = await _context.Jobs
+                    .Include(j => j.JobType)
+                    .FirstOrDefaultAsync(j => j.JobId == jobEntry.JobId);
+
+                if (job == null) throw new Exception("Job not found");
+
+                IIncentiveCalculator calculator = job.JobType.TypeName == "Hourly"
+                    ? new HourlyIncentiveCalculator(_logger)
+                    : new ItemBasedIncentiveCalculator(_logger);
+
+                // Fix: Only use expected_hours from job if not already provided
+                if (!jobEntry.ExpectedHours.HasValue || jobEntry.ExpectedHours.Value <= 0)
+                {
+                    jobEntry.ExpectedHours = job.ExpectedHours;
+                }
+
+                calculator.Calculate(job, jobEntry);
+
                 _context.JobEntries.Add(jobEntry);
                 await _context.SaveChangesAsync();
-                
+
                 _logger.LogInformation("Created job entry with ID: {EntryId}", jobEntry.EntryId);
                 return jobEntry;
             }
@@ -111,7 +114,7 @@ namespace WorkPlusAPI.WorkPlus.Service
                 throw;
             }
         }
-        
+
         public async Task<IEnumerable<JobEntryDTO>> GetAllJobEntriesAsync()
         {
             try
@@ -134,7 +137,7 @@ namespace WorkPlusAPI.WorkPlus.Service
                         IsPostLunch = je.IsPostLunch,
                         ItemsCompleted = je.ItemsCompleted,
                         HoursTaken = je.HoursTaken,
-                        RatePerJob = je.RatePerJob,
+                        RatePerJob = je.RatePerJob??0,
                         ExpectedHours = je.ExpectedHours,
                         ProductiveHours = je.ProductiveHours,
                         ExtraHours = je.ExtraHours,
@@ -153,7 +156,7 @@ namespace WorkPlusAPI.WorkPlus.Service
                 throw;
             }
         }
-        
+
         public async Task<JobEntryDTO> GetJobEntryAsync(int id)
         {
             try
@@ -163,12 +166,9 @@ namespace WorkPlusAPI.WorkPlus.Service
                     .Include(je => je.Worker)
                     .Include(je => je.Group)
                     .FirstOrDefaultAsync(je => je.EntryId == id);
-                
-                if (jobEntry == null)
-                {
-                    return null;
-                }
-                
+
+                if (jobEntry == null) return null;
+
                 return new JobEntryDTO
                 {
                     EntryId = jobEntry.EntryId,
@@ -182,7 +182,7 @@ namespace WorkPlusAPI.WorkPlus.Service
                     IsPostLunch = jobEntry.IsPostLunch,
                     ItemsCompleted = jobEntry.ItemsCompleted,
                     HoursTaken = jobEntry.HoursTaken,
-                    RatePerJob = jobEntry.RatePerJob,
+                    RatePerJob = jobEntry.RatePerJob ?? 0,
                     ExpectedHours = jobEntry.ExpectedHours,
                     ProductiveHours = jobEntry.ProductiveHours,
                     ExtraHours = jobEntry.ExtraHours,
@@ -200,30 +200,26 @@ namespace WorkPlusAPI.WorkPlus.Service
                 throw;
             }
         }
-        
+
         public async Task<bool> DeleteJobEntryAsync(int id)
         {
             try
             {
                 var jobEntry = await _context.JobEntries.FindAsync(id);
-                if (jobEntry == null)
-                {
-                    return false;
-                }
-                
-                // Also delete related workers for this entry
+                if (jobEntry == null) return false;
+
                 var relatedWorkers = await _context.JobEntryWorkers
                     .Where(jew => jew.EntryId == id)
                     .ToListAsync();
-                    
+
                 if (relatedWorkers.Any())
                 {
                     _context.JobEntryWorkers.RemoveRange(relatedWorkers);
                 }
-                
+
                 _context.JobEntries.Remove(jobEntry);
                 await _context.SaveChangesAsync();
-                
+
                 _logger.LogInformation("Deleted job entry with ID: {EntryId}", id);
                 return true;
             }
@@ -233,110 +229,124 @@ namespace WorkPlusAPI.WorkPlus.Service
                 throw;
             }
         }
-        
-        // Simple and direct incentive calculation
-        private async Task CalculateSimpleIncentiveAsync(JobEntry jobEntry)
+    }
+
+    public interface IIncentiveCalculator
+    {
+        void Calculate(Job job, JobEntry entry);
+    }
+
+    public class HourlyIncentiveCalculator : IIncentiveCalculator
+    {
+        private readonly ILogger _logger;
+        public HourlyIncentiveCalculator(ILogger logger) => _logger = logger;
+
+        public void Calculate(Job job, JobEntry entry)
         {
-            var job = await _context.Jobs.FindAsync(jobEntry.JobId);
-            if (job == null) return;
+            // Get actual and expected hours
+            decimal actual = entry.HoursTaken ?? 0;
+            decimal expected = entry.ExpectedHours ?? job.ExpectedHours ?? 0;
+            entry.ExpectedHours ??= expected;
             
-            // Set default values
-            jobEntry.ProductiveHours = 0;
-            jobEntry.ExtraHours = 0;
-            jobEntry.UnderperformanceHours = 0;
-            jobEntry.IncentiveAmount = 0;
-            jobEntry.TotalAmount = 0;
+            // Calculate productive, extra, and underperformance hours
+            entry.ProductiveHours = Math.Min(actual, expected);
+            entry.ExtraHours = Math.Max(actual - expected, 0);
+            entry.UnderperformanceHours = Math.Max(expected - actual, 0);
             
-            // Set expected hours from job if not provided
-            jobEntry.ExpectedHours ??= job.ExpectedHours;
+            // Set rate per job if not already set
+            entry.RatePerJob ??= job.RatePerHour;
             
-            decimal expected = jobEntry.ExpectedHours ?? 0;
-            decimal actual = 0;
-            
-            // Determine actual output based on job type
-            if (job.RatePerHour.HasValue && jobEntry.HoursTaken.HasValue)
+            // Calculate base amount
+            entry.TotalAmount = actual * (entry.RatePerJob ?? 0);
+
+            // Calculate incentive or penalty
+            decimal extraUnits = actual - expected;
+            if (extraUnits > 0 && job.IncentiveBonusRate.HasValue)
             {
-                actual = jobEntry.HoursTaken.Value;
-                jobEntry.ProductiveHours = Math.Min(actual, expected);
-                
-                // Extra hours or underperformance
-                if (actual > expected)
-                    jobEntry.ExtraHours = actual - expected;
-                else
-                    jobEntry.UnderperformanceHours = expected - actual;
-                    
-                // Base amount
-                jobEntry.TotalAmount = actual * jobEntry.RatePerJob;
-            }
-            else if (job.RatePerItem.HasValue && jobEntry.ItemsCompleted.HasValue)
-            {
-                decimal expectedItems = job.ExpectedItemsPerHour.HasValue ? 
-                    job.ExpectedItemsPerHour.Value * expected : 0;
-                    
-                actual = jobEntry.ItemsCompleted.Value;
-                
-                // Adjust hours based on performance
-                if (job.ExpectedItemsPerHour.HasValue && job.ExpectedItemsPerHour.Value > 0)
-                {
-                    if (actual > expectedItems)
-                        jobEntry.ExtraHours = (actual - expectedItems) / job.ExpectedItemsPerHour.Value;
-                    else
-                        jobEntry.UnderperformanceHours = (expectedItems - actual) / job.ExpectedItemsPerHour.Value;
-                }
-                
-                // Base amount
-                jobEntry.TotalAmount = actual * jobEntry.RatePerJob;
-            }
-            
-            // Log values
-            _logger.LogWarning("SIMPLE CALCULATION - Expected: {Expected}, Actual: {Actual}, Difference: {Diff}", 
-                expected, actual, actual - expected);
-                
-            // Calculate incentive
-            if (actual > expected && job.IncentiveBonusRate.HasValue)
-            {
-                _logger.LogWarning("OVERPERFORMING - Calculating BONUS");
-                decimal extraUnits = actual - expected;
-                decimal bonusRate = job.IncentiveBonusRate.Value;
-                
-                // Calculate bonus based on incentive type
+                // For percentage-based incentive
                 if (job.IncentiveType == "Percentage")
                 {
-                    decimal extraPay = extraUnits * jobEntry.RatePerJob;
-                    jobEntry.IncentiveAmount = (extraPay * bonusRate) / 100m;
+                    decimal bonusRatePerHour = (entry.RatePerJob ?? 0) * job.IncentiveBonusRate.Value / 100;
+                    entry.IncentiveAmount = extraUnits * bonusRatePerHour;
                 }
-                else  // Default to PerUnit
+                else
                 {
-                    jobEntry.IncentiveAmount = extraUnits * bonusRate;
+                    // Fixed rate bonus
+                    entry.IncentiveAmount = extraUnits * job.IncentiveBonusRate.Value;
                 }
-                
-                _logger.LogWarning("BONUS CALCULATION - ExtraUnits: {Extra}, Rate: {Rate}, Amount: {Amount}",
-                    extraUnits, bonusRate, jobEntry.IncentiveAmount);
             }
-            else if (actual < expected && job.PenaltyRate.HasValue)
+            else if (extraUnits < 0 && job.PenaltyRate.HasValue)
             {
-                _logger.LogWarning("UNDERPERFORMING - Calculating PENALTY");
-                decimal shortfall = expected - actual;
-                decimal penaltyRate = job.PenaltyRate.Value;
-                
-                // Calculate penalty (negative incentive)
-                decimal rawPenalty = shortfall * penaltyRate;
-                
-                // Cap the penalty at 50% of total amount
-                decimal maxPenalty = (jobEntry.TotalAmount ?? 0) * 0.5m;
-                jobEntry.IncentiveAmount = -1 * Math.Min(rawPenalty, maxPenalty);
-                
-                _logger.LogWarning("PENALTY CALCULATION - Shortfall: {Short}, Rate: {Rate}, Raw: {Raw}, Max: {Max}, Final: {Final}",
-                    shortfall, penaltyRate, rawPenalty, maxPenalty, jobEntry.IncentiveAmount);
+                // Calculate penalty amount
+                decimal penalty = Math.Abs(extraUnits) * job.PenaltyRate.Value;
+                // Cap penalty at 50% of base amount
+                decimal maxPenalty = (entry.TotalAmount ?? 0) * 0.5m;
+                entry.IncentiveAmount = -1 * Math.Min(penalty, maxPenalty);
             }
-            
-            // Add incentive to total
-            jobEntry.TotalAmount += jobEntry.IncentiveAmount ?? 0;
-            
-            _logger.LogWarning("FINAL AMOUNTS - Base: {Base}, Incentive: {Incentive}, Total: {Total}",
-                jobEntry.TotalAmount - (jobEntry.IncentiveAmount ?? 0), 
-                jobEntry.IncentiveAmount, 
-                jobEntry.TotalAmount);
+
+            // Add incentive (positive or negative) to total amount
+            entry.TotalAmount += entry.IncentiveAmount ?? 0;
         }
     }
-} 
+
+    public class ItemBasedIncentiveCalculator : IIncentiveCalculator
+    {
+        private readonly ILogger _logger;
+        public ItemBasedIncentiveCalculator(ILogger logger) => _logger = logger;
+
+        public void Calculate(Job job, JobEntry entry)
+        {
+            // Get the expected hours from entry or default to job's expected hours
+            decimal expected = entry.ExpectedHours ?? job.ExpectedHours ?? 0;
+            decimal actual = entry.ItemsCompleted ?? 0;
+            entry.ExpectedHours ??= expected;
+            entry.RatePerJob ??= job.RatePerItem;
+
+            // Calculate expected items based on expected hours and items per hour
+            decimal expectedItems = expected * (job.ExpectedItemsPerHour ?? 0);
+            decimal extraItems = Math.Max(actual - expectedItems, 0);
+            decimal underItems = Math.Max(expectedItems - actual, 0);
+
+            // Calculate extra hours or underperformance hours if expected items per hour is defined
+            if ((job.ExpectedItemsPerHour ?? 0) > 0)
+            {
+                entry.ExtraHours = extraItems / job.ExpectedItemsPerHour.Value;
+                entry.UnderperformanceHours = underItems / job.ExpectedItemsPerHour.Value;
+            }
+
+            // Calculate productive hours as expected minus underperformance
+            entry.ProductiveHours = expected - (entry.UnderperformanceHours ?? 0);
+            
+            // Base amount calculation
+            entry.TotalAmount = actual * (entry.RatePerJob ?? 0);
+
+            // Calculate incentive for extra items or penalty for under items
+            if (extraItems > 0 && job.IncentiveBonusRate.HasValue)
+            {
+                // For percentage-based incentive, apply the percentage to the rate per item
+                if (job.IncentiveType == "Percentage")
+                {
+                    decimal bonusRatePerItem = (entry.RatePerJob ?? 0) * job.IncentiveBonusRate.Value / 100;
+                    entry.IncentiveAmount = extraItems * bonusRatePerItem;
+                }
+                else
+                {
+                    // Fixed rate bonus
+                    entry.IncentiveAmount = extraItems * job.IncentiveBonusRate.Value;
+                }
+            }
+            else if (underItems > 0 && job.PenaltyRate.HasValue)
+            {
+                // Calculate penalty amount
+                decimal penalty = underItems * job.PenaltyRate.Value;
+                // Cap penalty at 50% of base amount
+                decimal maxPenalty = (entry.TotalAmount ?? 0) * 0.5m;
+                entry.IncentiveAmount = -1 * Math.Min(penalty, maxPenalty);
+            }
+
+            // Add incentive (positive or negative) to total amount
+            entry.TotalAmount += entry.IncentiveAmount ?? 0;
+        }
+    }
+
+}
