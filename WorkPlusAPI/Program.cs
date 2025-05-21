@@ -77,6 +77,7 @@ builder.Services.AddDbContext<ArchiveContext>(options =>
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IJobWorkService, JobWorkService>();
 builder.Services.AddScoped<IJobEntryService, JobEntryService>();
+builder.Services.AddScoped<IMasterDataService, MasterDataService>();
 
 // Configure JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

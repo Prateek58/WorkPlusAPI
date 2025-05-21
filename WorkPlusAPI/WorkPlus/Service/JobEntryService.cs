@@ -229,6 +229,56 @@ namespace WorkPlusAPI.WorkPlus.Service
                 throw;
             }
         }
+
+        public async Task<(IEnumerable<JobEntryDTO> Items, int TotalCount)> GetPaginatedJobEntriesAsync(int pageNumber, int pageSize)
+        {
+            try
+            {
+                var query = _context.JobEntries
+                    .Include(je => je.Job)
+                    .Include(je => je.Worker)
+                    .Include(je => je.Group)
+                    .OrderByDescending(je => je.CreatedAt);
+
+                var totalCount = await query.CountAsync();
+
+                var items = await query
+                    .Skip((pageNumber - 1) * pageSize)
+                    .Take(pageSize)
+                    .Select(je => new JobEntryDTO
+                    {
+                        EntryId = je.EntryId,
+                        JobId = je.JobId,
+                        JobName = je.Job.JobName,
+                        EntryType = je.EntryType,
+                        WorkerId = je.WorkerId,
+                        WorkerName = je.Worker.FullName,
+                        GroupId = je.GroupId,
+                        GroupName = je.Group.GroupName,
+                        IsPostLunch = je.IsPostLunch,
+                        ItemsCompleted = je.ItemsCompleted,
+                        HoursTaken = je.HoursTaken,
+                        RatePerJob = je.RatePerJob ?? 0,
+                        ExpectedHours = je.ExpectedHours,
+                        ProductiveHours = je.ProductiveHours,
+                        ExtraHours = je.ExtraHours,
+                        UnderperformanceHours = je.UnderperformanceHours,
+                        IncentiveAmount = je.IncentiveAmount,
+                        TotalAmount = je.TotalAmount,
+                        Remarks = je.Remarks,
+                        IsFinalized = je.IsFinalized ?? false,
+                        CreatedAt = je.CreatedAt
+                    })
+                    .ToListAsync();
+
+                return (items, totalCount);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting paginated job entries");
+                throw;
+            }
+        }
     }
 
     public interface IIncentiveCalculator

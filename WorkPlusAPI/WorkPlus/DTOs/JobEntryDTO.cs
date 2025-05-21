@@ -3,11 +3,11 @@ using System;
 
 namespace WorkPlusAPI.WorkPlus.DTOs
 {
-    public class WorkerDTO
-    {
-        public int WorkerId { get; set; }
-        public string FullName { get; set; }
-    }
+    //public class WorkerDTO
+    //{
+    //    public int WorkerId { get; set; }
+    //    public string FullName { get; set; }
+    //}
 
     public class JobDTO
     {

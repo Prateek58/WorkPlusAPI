@@ -41,6 +41,21 @@ namespace WorkPlusAPI.WorkPlus.Controllers
             }
         }
 
+        [HttpGet("paginated")]
+        public async Task<ActionResult<object>> GetPaginatedJobEntries([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        {
+            try
+            {
+                var (items, totalCount) = await _jobEntryService.GetPaginatedJobEntriesAsync(pageNumber, pageSize);
+                return Ok(new { items, totalCount });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving paginated job entries");
+                return StatusCode(500, "An error occurred while retrieving job entries");
+            }
+        }
+
         [HttpGet("{id}")]
         public async Task<ActionResult<JobEntryDTO>> GetJobEntry(int id)
         {
