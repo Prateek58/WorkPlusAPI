@@ -26,6 +26,7 @@ namespace WorkPlusAPI.WorkPlus.Service
         Task<IEnumerable<RoleDTO>> GetRolesAsync();
         Task<UserRoleDTO> GetUserRolesAsync(int userId);
         Task<bool> AssignUserRolesAsync(UserRoleAssignmentDTO assignmentDto);
+        Task<RoleDTO> GetRoleAsync(int id);
         #endregion
 
         #region JobGroups
@@ -51,6 +52,16 @@ namespace WorkPlusAPI.WorkPlus.Service
         Task<bool> UpdateJobAsync(JobDTO jobDto);
         Task<bool> DeleteJobAsync(int id);
         Task<IEnumerable<dynamic>> GetJobTypesAsync();
+        #endregion
+
+        #region JobTypes
+        Task<IEnumerable<JobTypeDTO>> GetAllJobTypesAsync();
+        Task<JobTypeDTO> GetJobTypeAsync(int id);
+        #endregion
+
+        #region EmployeeTypes
+        Task<IEnumerable<EmployeeTypeDTO>> GetEmployeeTypesAsync();
+        Task<EmployeeTypeDTO> GetEmployeeTypeAsync(int id);
         #endregion
     }
 } 

@@ -256,6 +256,24 @@ namespace WorkPlus.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+
+        [HttpGet("roles/{id}")]
+        public async Task<ActionResult<RoleDTO>> GetRole(int id)
+        {
+            try
+            {
+                var role = await _masterDataService.GetRoleAsync(id);
+                if (role == null)
+                    return NotFound();
+
+                return Ok(role);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting role {Id}", id);
+                return StatusCode(500, "Internal server error");
+            }
+        }
         #endregion
 
         #region JobGroups
@@ -554,6 +572,76 @@ namespace WorkPlus.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting job types");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+        #endregion
+
+        #region JobTypes
+        [HttpGet("job-types/all")]
+        public async Task<ActionResult<IEnumerable<JobTypeDTO>>> GetAllJobTypes()
+        {
+            try
+            {
+                var jobTypes = await _masterDataService.GetAllJobTypesAsync();
+                return Ok(jobTypes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting all job types");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpGet("job-types/{id}")]
+        public async Task<ActionResult<JobTypeDTO>> GetJobType(int id)
+        {
+            try
+            {
+                var jobType = await _masterDataService.GetJobTypeAsync(id);
+                if (jobType == null)
+                    return NotFound();
+
+                return Ok(jobType);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting job type {Id}", id);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+        #endregion
+
+        #region EmployeeTypes
+        [HttpGet("employee-types")]
+        public async Task<ActionResult<IEnumerable<EmployeeTypeDTO>>> GetEmployeeTypes()
+        {
+            try
+            {
+                var employeeTypes = await _masterDataService.GetEmployeeTypesAsync();
+                return Ok(employeeTypes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting employee types");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpGet("employee-types/{id}")]
+        public async Task<ActionResult<EmployeeTypeDTO>> GetEmployeeType(int id)
+        {
+            try
+            {
+                var employeeType = await _masterDataService.GetEmployeeTypeAsync(id);
+                if (employeeType == null)
+                    return NotFound();
+
+                return Ok(employeeType);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting employee type {Id}", id);
                 return StatusCode(500, "Internal server error");
             }
         }

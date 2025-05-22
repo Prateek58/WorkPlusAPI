@@ -490,6 +490,29 @@ namespace WorkPlusAPI.WorkPlus.Service
             }
         }
 
+        public async Task<RoleDTO> GetRoleAsync(int id)
+        {
+            try
+            {
+                var role = await _loginContext.Roles
+                    .Where(r => r.Id == id)
+                    .Select(r => new RoleDTO
+                    {
+                        Id = r.Id,
+                        Name = r.Name,
+                        Description = r.Description
+                    })
+                    .FirstOrDefaultAsync();
+
+                return role;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting role with ID {RoleId}", id);
+                throw;
+            }
+        }
+
         public async Task<UserRoleDTO> GetUserRolesAsync(int userId)
         {
             try
@@ -1084,6 +1107,98 @@ namespace WorkPlusAPI.WorkPlus.Service
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting job types");
+                throw;
+            }
+        }
+        #endregion
+
+        #region JobTypes
+        public async Task<IEnumerable<JobTypeDTO>> GetAllJobTypesAsync()
+        {
+            try
+            {
+                var jobTypes = await _context.JobTypes
+                    .OrderBy(jt => jt.TypeName)
+                    .Select(jt => new JobTypeDTO
+                    {
+                        JobTypeId = jt.JobTypeId,
+                        TypeName = jt.TypeName
+                    })
+                    .ToListAsync();
+
+                return jobTypes;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting all job types");
+                throw;
+            }
+        }
+
+        public async Task<JobTypeDTO> GetJobTypeAsync(int id)
+        {
+            try
+            {
+                var jobType = await _context.JobTypes
+                    .Where(jt => jt.JobTypeId == id)
+                    .Select(jt => new JobTypeDTO
+                    {
+                        JobTypeId = jt.JobTypeId,
+                        TypeName = jt.TypeName
+                    })
+                    .FirstOrDefaultAsync();
+
+                return jobType;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting job type with ID {JobTypeId}", id);
+                throw;
+            }
+        }
+        #endregion
+
+        #region EmployeeTypes
+        public async Task<IEnumerable<EmployeeTypeDTO>> GetEmployeeTypesAsync()
+        {
+            try
+            {
+                var employeeTypes = await _context.EmployeeTypes
+                    .OrderBy(et => et.TypeName)
+                    .Select(et => new EmployeeTypeDTO
+                    {
+                        TypeId = et.TypeId,
+                        TypeName = et.TypeName
+                    })
+                    .ToListAsync();
+
+                return employeeTypes;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting employee types");
+                throw;
+            }
+        }
+
+        public async Task<EmployeeTypeDTO> GetEmployeeTypeAsync(int id)
+        {
+            try
+            {
+                var employeeType = await _context.EmployeeTypes
+                    .Where(et => et.TypeId == id)
+                    .Select(et => new EmployeeTypeDTO
+                    {
+                        TypeId = et.TypeId,
+                        TypeName = et.TypeName
+                    })
+                    .FirstOrDefaultAsync();
+
+                return employeeType;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting employee type with ID {TypeId}", id);
                 throw;
             }
         }
