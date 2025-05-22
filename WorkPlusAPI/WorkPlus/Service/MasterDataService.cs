@@ -3,7 +3,10 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
+using WorkPlusAPI.Archive.Data.Workplus;
 using WorkPlusAPI.WorkPlus.Data;
 using WorkPlusAPI.WorkPlus.DTOs;
 using WorkPlusAPI.WorkPlus.Model;
@@ -13,11 +16,13 @@ namespace WorkPlusAPI.WorkPlus.Service
     public class MasterDataService : IMasterDataService
     {
         private readonly WorkPlusContext _context;
+        private readonly LoginWorkPlusContext _loginContext;
         private readonly ILogger<MasterDataService> _logger;
 
-        public MasterDataService(WorkPlusContext context, ILogger<MasterDataService> logger)
+        public MasterDataService(WorkPlusContext context, LoginWorkPlusContext loginContext, ILogger<MasterDataService> logger)
         {
             _context = context;
+            _loginContext = loginContext;
             _logger = logger;
         }
 
@@ -140,7 +145,7 @@ namespace WorkPlusAPI.WorkPlus.Service
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting worker {Id}", id);
+                _logger.LogError(ex, "Error getting worker with ID {WorkerId}", id);
                 throw;
             }
         }
@@ -196,9 +201,7 @@ namespace WorkPlusAPI.WorkPlus.Service
                 _context.Workers.Add(worker);
                 await _context.SaveChangesAsync();
 
-                // Map back the created worker to DTO
                 workerDto.WorkerId = worker.WorkerId;
-                workerDto.IsActive = worker.IsActive;
                 return workerDto;
             }
             catch (Exception ex)
@@ -213,7 +216,7 @@ namespace WorkPlusAPI.WorkPlus.Service
             try
             {
                 var worker = await _context.Workers.FindAsync(workerDto.WorkerId);
-                if (worker == null)
+                if (worker == null || worker.IsActive != true)
                     return false;
 
                 worker.FullName = workerDto.FullName;
@@ -261,7 +264,7 @@ namespace WorkPlusAPI.WorkPlus.Service
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating worker {Id}", workerDto.WorkerId);
+                _logger.LogError(ex, "Error updating worker with ID {WorkerId}", workerDto.WorkerId);
                 throw;
             }
         }
@@ -271,7 +274,7 @@ namespace WorkPlusAPI.WorkPlus.Service
             try
             {
                 var worker = await _context.Workers.FindAsync(id);
-                if (worker == null)
+                if (worker == null || worker.IsActive != true)
                     return false;
 
                 worker.IsActive = false;
@@ -280,7 +283,296 @@ namespace WorkPlusAPI.WorkPlus.Service
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error deleting worker {Id}", id);
+                _logger.LogError(ex, "Error deleting worker with ID {WorkerId}", id);
+                throw;
+            }
+        }
+        #endregion
+
+        #region Users
+        public async Task<IEnumerable<UserDTO>> GetUsersAsync()
+        {
+            try
+            {
+                var users = await _loginContext.Users
+                    .OrderByDescending(u => u.Id)
+                    .Select(u => new UserDTO
+                    {
+                        Id = u.Id,
+                        Username = u.Username,
+                        Email = u.Email,
+                        FirstName = u.FirstName,
+                        LastName = u.LastName,
+                        IsActive = u.IsActive,
+                        CreatedAt = u.CreatedAt ?? DateTime.Now,
+                        UpdatedAt = u.UpdatedAt ?? DateTime.Now,
+                        Password = null,
+                        PasswordHash = null
+                    })
+                    .ToListAsync();
+
+                return users;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting users");
+                throw;
+            }
+        }
+
+        public async Task<UserDTO> GetUserAsync(int id)
+        {
+            try
+            {
+                var user = await _loginContext.Users
+                    .Where(u => u.Id == id)
+                    .Select(u => new UserDTO
+                    {
+                        Id = u.Id,
+                        Username = u.Username,
+                        Email = u.Email,
+                        FirstName = u.FirstName,
+                        LastName = u.LastName,
+                        IsActive = u.IsActive,
+                        CreatedAt = u.CreatedAt ?? DateTime.Now,
+                        UpdatedAt = u.UpdatedAt ?? DateTime.Now,
+                        Password = null,
+                        PasswordHash = null
+                    })
+                    .FirstOrDefaultAsync();
+
+                return user;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting user with ID {UserId}", id);
+                throw;
+            }
+        }
+
+        public async Task<UserDTO> CreateUserAsync(UserDTO userDto)
+        {
+            try
+            {
+                // Check if username or email already exists
+                if (await _loginContext.Users.AnyAsync(u => u.Username == userDto.Username || u.Email == userDto.Email))
+                {
+                    throw new InvalidOperationException("Username or email already exists");
+                }
+
+                var user = new Archive.Models.WorkPlus.User
+                {
+                    Username = userDto.Username,
+                    Email = userDto.Email,
+                    PasswordHash = HashPassword(userDto.Password),
+                    FirstName = userDto.FirstName,
+                    LastName = userDto.LastName,
+                    IsActive = userDto.IsActive,
+                    CreatedAt = DateTime.Now,
+                    UpdatedAt = DateTime.Now
+                };
+
+                // Assign default user role
+                var userRole = await _loginContext.Roles.FirstOrDefaultAsync(r => r.Name == "User");
+                if (userRole != null)
+                {
+                    user.Roles.Add(userRole);
+                }
+
+                _loginContext.Users.Add(user);
+                await _loginContext.SaveChangesAsync();
+
+                userDto.Id = user.Id;
+                userDto.CreatedAt = user.CreatedAt ?? DateTime.Now;
+                userDto.UpdatedAt = user.UpdatedAt ?? DateTime.Now;
+                
+                // Don't return the password or hash
+                userDto.Password = null;
+                userDto.PasswordHash = null;
+                
+                return userDto;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating user");
+                throw;
+            }
+        }
+
+        public async Task<bool> UpdateUserAsync(UserDTO userDto)
+        {
+            try
+            {
+                var user = await _loginContext.Users.FindAsync(userDto.Id);
+                if (user == null)
+                    return false;
+
+                // Update user properties
+                user.Email = userDto.Email;
+                user.FirstName = userDto.FirstName;
+                user.LastName = userDto.LastName;
+                user.IsActive = userDto.IsActive;
+                user.UpdatedAt = DateTime.Now;
+
+                // If password is provided, update it
+                if (!string.IsNullOrEmpty(userDto.Password))
+                {
+                    user.PasswordHash = HashPassword(userDto.Password);
+                }
+
+                await _loginContext.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating user with ID {UserId}", userDto.Id);
+                throw;
+            }
+        }
+
+        public async Task<bool> DeleteUserAsync(int id)
+        {
+            try
+            {
+                var user = await _loginContext.Users.FindAsync(id);
+                if (user == null)
+                    return false;
+
+                // Instead of actually deleting, just set IsActive to false
+                user.IsActive = false;
+                user.UpdatedAt = DateTime.Now;
+
+                await _loginContext.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deactivating user with ID {UserId}", id);
+                throw;
+            }
+        }
+
+        private static string HashPassword(string password)
+        {
+            if (string.IsNullOrEmpty(password))
+            {
+                throw new ArgumentException("Password cannot be null or empty", nameof(password));
+            }
+
+            byte[] salt = Encoding.UTF8.GetBytes("WorkPlusStaticSalt123!@#");
+            using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, 10000, HashAlgorithmName.SHA256);
+            byte[] hash = pbkdf2.GetBytes(32);
+            return Convert.ToBase64String(hash);
+        }
+        #endregion
+
+        #region Roles
+        public async Task<IEnumerable<RoleDTO>> GetRolesAsync()
+        {
+            try
+            {
+                var roles = await _loginContext.Roles
+                    .OrderBy(r => r.Name)
+                    .Select(r => new RoleDTO
+                    {
+                        Id = r.Id,
+                        Name = r.Name,
+                        Description = r.Description
+                    })
+                    .ToListAsync();
+
+                return roles;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting roles");
+                throw;
+            }
+        }
+
+        public async Task<UserRoleDTO> GetUserRolesAsync(int userId)
+        {
+            try
+            {
+                // Check if user exists
+                var user = await _loginContext.Users
+                    .Include(u => u.Roles)
+                    .FirstOrDefaultAsync(u => u.Id == userId);
+
+                if (user == null)
+                {
+                    throw new InvalidOperationException($"User with ID {userId} not found");
+                }
+
+                // Get all roles and separate into assigned and available
+                var allRoles = await _loginContext.Roles.ToListAsync();
+                var userRoleIds = user.Roles.Select(r => r.Id).ToHashSet();
+
+                var result = new UserRoleDTO
+                {
+                    UserId = user.Id,
+                    Username = user.Username,
+                    AssignedRoles = allRoles
+                        .Where(r => userRoleIds.Contains(r.Id))
+                        .Select(r => new RoleDTO
+                        {
+                            Id = r.Id,
+                            Name = r.Name,
+                            Description = r.Description
+                        })
+                        .ToList(),
+                    AvailableRoles = allRoles
+                        .Where(r => !userRoleIds.Contains(r.Id))
+                        .Select(r => new RoleDTO
+                        {
+                            Id = r.Id,
+                            Name = r.Name,
+                            Description = r.Description
+                        })
+                        .ToList()
+                };
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting roles for user with ID {UserId}", userId);
+                throw;
+            }
+        }
+
+        public async Task<bool> AssignUserRolesAsync(UserRoleAssignmentDTO assignmentDto)
+        {
+            try
+            {
+                // Get user with current roles
+                var user = await _loginContext.Users
+                    .Include(u => u.Roles)
+                    .FirstOrDefaultAsync(u => u.Id == assignmentDto.UserId);
+
+                if (user == null)
+                {
+                    return false;
+                }
+
+                // Get all roles that should be assigned
+                var rolesToAssign = await _loginContext.Roles
+                    .Where(r => assignmentDto.RoleIds.Contains(r.Id))
+                    .ToListAsync();
+
+                // Clear current roles and assign new ones
+                user.Roles.Clear();
+                foreach (var role in rolesToAssign)
+                {
+                    user.Roles.Add(role);
+                }
+
+                await _loginContext.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error assigning roles to user with ID {UserId}", assignmentDto.UserId);
                 throw;
             }
         }

@@ -40,6 +40,18 @@ public class AuthController : ControllerBase
         return Ok(response);
     }
 
+    [HttpPost("updatePassword")]
+    public async Task<ActionResult> UpdatePassword(UpdatePasswordRequest request)
+    {
+        var success = await _authService.UpdatePassword(request);
+        if (!success)
+        {
+            return NotFound(new { message = "User not found" });
+        }
+
+        return Ok(new { message = "Password updated successfully" });
+    }
+
     [Authorize]
     [HttpGet("test")]
     public ActionResult<object> TestAuth()

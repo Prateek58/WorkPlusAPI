@@ -14,6 +14,7 @@ public interface IAuthService
 {
     Task<AuthResponse?> Login(LoginRequest request);
     Task<AuthResponse?> Register(RegisterRequest request);
+    Task<bool> UpdatePassword(UpdatePasswordRequest request);
 }
 
 public class AuthService : IAuthService
@@ -152,6 +153,37 @@ public class AuthService : IAuthService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error registering user: {Username}", request.Username);
+            throw;
+        }
+    }
+
+    public async Task<bool> UpdatePassword(UpdatePasswordRequest request)
+    {
+        _logger.LogInformation("Password update request for user ID: {UserId}", request.UserId);
+
+        try
+        {
+            var user = await _context.Users.FindAsync(request.UserId);
+            
+            if (user == null)
+            {
+                _logger.LogWarning("Password update failed - User not found: {UserId}", request.UserId);
+                return false;
+            }
+
+            // Update the password hash
+            user.PasswordHash = HashPassword(request.NewPassword);
+            user.UpdatedAt = DateTime.Now;
+            
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Password successfully updated for user: {Username} (ID: {UserId})", 
+                user.Username, user.Id);
+            
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating password for user ID: {UserId}", request.UserId);
             throw;
         }
     }
