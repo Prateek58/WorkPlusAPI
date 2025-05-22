@@ -577,5 +577,516 @@ namespace WorkPlusAPI.WorkPlus.Service
             }
         }
         #endregion
+
+        #region JobGroups
+        public async Task<IEnumerable<JobGroupDTO>> GetJobGroupsAsync()
+        {
+            try
+            {
+                var jobGroups = await _context.JobGroups
+                    .OrderBy(g => g.GroupName)
+                    .Select(g => new JobGroupDTO
+                    {
+                        GroupId = g.GroupId,
+                        GroupName = g.GroupName,
+                        MinWorkers = g.MinWorkers,
+                        MaxWorkers = g.MaxWorkers
+                    })
+                    .ToListAsync();
+
+                return jobGroups;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting job groups");
+                throw;
+            }
+        }
+
+        public async Task<JobGroupDTO> GetJobGroupAsync(int id)
+        {
+            try
+            {
+                var jobGroup = await _context.JobGroups
+                    .Where(g => g.GroupId == id)
+                    .Select(g => new JobGroupDTO
+                    {
+                        GroupId = g.GroupId,
+                        GroupName = g.GroupName,
+                        MinWorkers = g.MinWorkers,
+                        MaxWorkers = g.MaxWorkers
+                    })
+                    .FirstOrDefaultAsync();
+
+                return jobGroup;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting job group with ID {GroupId}", id);
+                throw;
+            }
+        }
+
+        public async Task<JobGroupDTO> CreateJobGroupAsync(JobGroupDTO jobGroupDto)
+        {
+            try
+            {
+                var jobGroup = new JobGroup
+                {
+                    GroupName = jobGroupDto.GroupName,
+                    MinWorkers = jobGroupDto.MinWorkers,
+                    MaxWorkers = jobGroupDto.MaxWorkers
+                };
+
+                _context.JobGroups.Add(jobGroup);
+                await _context.SaveChangesAsync();
+
+                jobGroupDto.GroupId = jobGroup.GroupId;
+                return jobGroupDto;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating job group");
+                throw;
+            }
+        }
+
+        public async Task<bool> UpdateJobGroupAsync(JobGroupDTO jobGroupDto)
+        {
+            try
+            {
+                var jobGroup = await _context.JobGroups.FindAsync(jobGroupDto.GroupId);
+                if (jobGroup == null)
+                    return false;
+
+                jobGroup.GroupName = jobGroupDto.GroupName;
+                jobGroup.MinWorkers = jobGroupDto.MinWorkers;
+                jobGroup.MaxWorkers = jobGroupDto.MaxWorkers;
+
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating job group with ID {GroupId}", jobGroupDto.GroupId);
+                throw;
+            }
+        }
+
+        public async Task<bool> DeleteJobGroupAsync(int id)
+        {
+            try
+            {
+                var jobGroup = await _context.JobGroups.FindAsync(id);
+                if (jobGroup == null)
+                    return false;
+
+                // Check if the job group has associated group members
+                var hasGroupMembers = await _context.GroupMembers.AnyAsync(gm => gm.GroupId == id);
+                if (hasGroupMembers)
+                {
+                    throw new InvalidOperationException("Cannot delete job group that has associated group members");
+                }
+
+                // Check if the job group is used in any job entries
+                var hasJobEntries = await _context.JobEntries.AnyAsync(je => je.GroupId == id);
+                if (hasJobEntries)
+                {
+                    throw new InvalidOperationException("Cannot delete job group that is used in job entries");
+                }
+
+                _context.JobGroups.Remove(jobGroup);
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                // Rethrow business rule violations
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting job group with ID {GroupId}", id);
+                throw;
+            }
+        }
+        #endregion
+
+        #region GroupMembers
+        public async Task<IEnumerable<GroupMemberDTO>> GetGroupMembersAsync()
+        {
+            try
+            {
+                var groupMembers = await _context.GroupMembers
+                    .Include(gm => gm.Group)
+                    .Include(gm => gm.Worker)
+                    .OrderBy(gm => gm.Group.GroupName)
+                    .ThenBy(gm => gm.Worker.FullName)
+                    .Select(gm => new GroupMemberDTO
+                    {
+                        Id = gm.Id,
+                        GroupId = gm.GroupId,
+                        WorkerId = gm.WorkerId,
+                        GroupName = gm.Group.GroupName,
+                        WorkerName = gm.Worker.FullName
+                    })
+                    .ToListAsync();
+
+                return groupMembers;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting group members");
+                throw;
+            }
+        }
+
+        public async Task<IEnumerable<GroupMemberDTO>> GetGroupMembersByGroupAsync(int groupId)
+        {
+            try
+            {
+                var groupMembers = await _context.GroupMembers
+                    .Include(gm => gm.Group)
+                    .Include(gm => gm.Worker)
+                    .Where(gm => gm.GroupId == groupId)
+                    .OrderBy(gm => gm.Worker.FullName)
+                    .Select(gm => new GroupMemberDTO
+                    {
+                        Id = gm.Id,
+                        GroupId = gm.GroupId,
+                        WorkerId = gm.WorkerId,
+                        GroupName = gm.Group.GroupName,
+                        WorkerName = gm.Worker.FullName
+                    })
+                    .ToListAsync();
+
+                return groupMembers;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting group members for group ID {GroupId}", groupId);
+                throw;
+            }
+        }
+
+        public async Task<GroupMemberDTO> GetGroupMemberAsync(int id)
+        {
+            try
+            {
+                var groupMember = await _context.GroupMembers
+                    .Include(gm => gm.Group)
+                    .Include(gm => gm.Worker)
+                    .Where(gm => gm.Id == id)
+                    .Select(gm => new GroupMemberDTO
+                    {
+                        Id = gm.Id,
+                        GroupId = gm.GroupId,
+                        WorkerId = gm.WorkerId,
+                        GroupName = gm.Group.GroupName,
+                        WorkerName = gm.Worker.FullName
+                    })
+                    .FirstOrDefaultAsync();
+
+                return groupMember;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting group member with ID {Id}", id);
+                throw;
+            }
+        }
+
+        public async Task<GroupMemberDTO> CreateGroupMemberAsync(GroupMemberCreateDTO groupMemberDto)
+        {
+            try
+            {
+                // Check if the worker already exists in the group
+                bool exists = await _context.GroupMembers
+                    .AnyAsync(gm => gm.GroupId == groupMemberDto.GroupId && gm.WorkerId == groupMemberDto.WorkerId);
+                
+                if (exists)
+                {
+                    throw new InvalidOperationException("Worker is already a member of this group");
+                }
+
+                // Verify that group exists
+                var group = await _context.JobGroups.FindAsync(groupMemberDto.GroupId);
+                if (group == null)
+                {
+                    throw new InvalidOperationException("Group not found");
+                }
+
+                // Verify that worker exists and is active
+                var worker = await _context.Workers.FindAsync(groupMemberDto.WorkerId);
+                if (worker == null || worker.IsActive != true)
+                {
+                    throw new InvalidOperationException("Worker not found or inactive");
+                }
+
+                // Check if adding this worker would exceed the maximum workers for the group
+                var currentMemberCount = await _context.GroupMembers
+                    .CountAsync(gm => gm.GroupId == groupMemberDto.GroupId);
+                
+                if (currentMemberCount >= group.MaxWorkers)
+                {
+                    throw new InvalidOperationException($"Cannot add more workers. Group has reached its maximum capacity of {group.MaxWorkers} workers");
+                }
+
+                var groupMember = new GroupMember
+                {
+                    GroupId = groupMemberDto.GroupId,
+                    WorkerId = groupMemberDto.WorkerId
+                };
+
+                _context.GroupMembers.Add(groupMember);
+                await _context.SaveChangesAsync();
+
+                // Fetch the complete group member with navigation properties
+                var createdGroupMember = await GetGroupMemberAsync(groupMember.Id);
+                return createdGroupMember;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating group member");
+                throw;
+            }
+        }
+
+        public async Task<bool> DeleteGroupMemberAsync(int id)
+        {
+            try
+            {
+                var groupMember = await _context.GroupMembers.FindAsync(id);
+                if (groupMember == null)
+                    return false;
+
+                // Check if there are any job entries that reference this group
+                var hasJobEntries = await _context.JobEntries
+                    .AnyAsync(je => je.GroupId == groupMember.GroupId);
+
+                if (hasJobEntries)
+                {
+                    // Instead of preventing deletion, just log a warning
+                    _logger.LogWarning("Deleting a member from group ID {GroupId} which has associated job entries", groupMember.GroupId);
+                }
+
+                _context.GroupMembers.Remove(groupMember);
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting group member with ID {Id}", id);
+                throw;
+            }
+        }
+        #endregion
+
+        #region Jobs
+        public async Task<IEnumerable<JobDTO>> GetJobsAsync()
+        {
+            try
+            {
+                var jobs = await _context.Jobs
+                    .Include(j => j.JobType)
+                    .Include(j => j.CreatedByNavigation)
+                    .OrderByDescending(j => j.JobId)
+                    .Select(j => new JobDTO
+                    {
+                        JobId = j.JobId,
+                        JobName = j.JobName,
+                        JobTypeId = j.JobTypeId,
+                        RatePerItem = j.RatePerItem,
+                        RatePerHour = j.RatePerHour,
+                        ExpectedHours = j.ExpectedHours,
+                        ExpectedItemsPerHour = j.ExpectedItemsPerHour,
+                        IncentiveBonusRate = j.IncentiveBonusRate,
+                        PenaltyRate = j.PenaltyRate,
+                        IncentiveType = j.IncentiveType,
+                        CreatedBy = j.CreatedBy,
+                        JobTypeName = j.JobType.TypeName,
+                        CreatedByName = j.CreatedByNavigation.FirstName + " " + j.CreatedByNavigation.LastName
+                    })
+                    .ToListAsync();
+
+                return jobs;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting jobs");
+                throw;
+            }
+        }
+
+        public async Task<JobDTO> GetJobAsync(int id)
+        {
+            try
+            {
+                var job = await _context.Jobs
+                    .Include(j => j.JobType)
+                    .Include(j => j.CreatedByNavigation)
+                    .Where(j => j.JobId == id)
+                    .Select(j => new JobDTO
+                    {
+                        JobId = j.JobId,
+                        JobName = j.JobName,
+                        JobTypeId = j.JobTypeId,
+                        RatePerItem = j.RatePerItem,
+                        RatePerHour = j.RatePerHour,
+                        ExpectedHours = j.ExpectedHours,
+                        ExpectedItemsPerHour = j.ExpectedItemsPerHour,
+                        IncentiveBonusRate = j.IncentiveBonusRate,
+                        PenaltyRate = j.PenaltyRate,
+                        IncentiveType = j.IncentiveType,
+                        CreatedBy = j.CreatedBy,
+                        JobTypeName = j.JobType.TypeName,
+                        CreatedByName = j.CreatedByNavigation.FirstName + " " + j.CreatedByNavigation.LastName
+                    })
+                    .FirstOrDefaultAsync();
+
+                return job;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting job with ID {JobId}", id);
+                throw;
+            }
+        }
+
+        public async Task<JobDTO> CreateJobAsync(JobCreateDTO jobDto)
+        {
+            try
+            {
+                // Verify that job type exists
+                var jobType = await _context.JobTypes.FindAsync(jobDto.JobTypeId);
+                if (jobType == null)
+                {
+                    throw new InvalidOperationException("Job type not found");
+                }
+
+                // Verify that user exists
+                var user = await _loginContext.Users.FindAsync(jobDto.CreatedBy);
+                if (user == null)
+                {
+                    throw new InvalidOperationException("User not found");
+                }
+
+                var job = new WorkPlus.Model.Job
+                {
+                    JobName = jobDto.JobName,
+                    JobTypeId = jobDto.JobTypeId,
+                    RatePerItem = jobDto.RatePerItem,
+                    RatePerHour = jobDto.RatePerHour,
+                    ExpectedHours = jobDto.ExpectedHours,
+                    ExpectedItemsPerHour = jobDto.ExpectedItemsPerHour,
+                    IncentiveBonusRate = jobDto.IncentiveBonusRate,
+                    PenaltyRate = jobDto.PenaltyRate,
+                    IncentiveType = jobDto.IncentiveType,
+                    CreatedBy = jobDto.CreatedBy
+                };
+
+                _context.Jobs.Add(job);
+                await _context.SaveChangesAsync();
+
+                // Fetch the complete job with navigation properties
+                var createdJob = await GetJobAsync(job.JobId);
+                return createdJob;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating job");
+                throw;
+            }
+        }
+
+        public async Task<bool> UpdateJobAsync(JobDTO jobDto)
+        {
+            try
+            {
+                var job = await _context.Jobs.FindAsync(jobDto.JobId);
+                if (job == null)
+                    return false;
+
+                // Verify that job type exists
+                var jobType = await _context.JobTypes.FindAsync(jobDto.JobTypeId);
+                if (jobType == null)
+                {
+                    throw new InvalidOperationException("Job type not found");
+                }
+
+                job.JobName = jobDto.JobName;
+                job.JobTypeId = jobDto.JobTypeId;
+                job.RatePerItem = jobDto.RatePerItem;
+                job.RatePerHour = jobDto.RatePerHour;
+                job.ExpectedHours = jobDto.ExpectedHours;
+                job.ExpectedItemsPerHour = jobDto.ExpectedItemsPerHour;
+                job.IncentiveBonusRate = jobDto.IncentiveBonusRate;
+                job.PenaltyRate = jobDto.PenaltyRate;
+                job.IncentiveType = jobDto.IncentiveType;
+                // We don't update CreatedBy since it represents who created the job originally
+
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating job with ID {JobId}", jobDto.JobId);
+                throw;
+            }
+        }
+
+        public async Task<bool> DeleteJobAsync(int id)
+        {
+            try
+            {
+                var job = await _context.Jobs.FindAsync(id);
+                if (job == null)
+                    return false;
+
+                // Check if the job is used in any job entries
+                var hasJobEntries = await _context.JobEntries.AnyAsync(je => je.JobId == id);
+                if (hasJobEntries)
+                {
+                    throw new InvalidOperationException("Cannot delete job that is used in job entries");
+                }
+
+                _context.Jobs.Remove(job);
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                // Rethrow business rule violations
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting job with ID {JobId}", id);
+                throw;
+            }
+        }
+
+        public async Task<IEnumerable<dynamic>> GetJobTypesAsync()
+        {
+            try
+            {
+                var jobTypes = await _context.JobTypes
+                    .OrderBy(jt => jt.TypeName)
+                    .Select(jt => new
+                    {
+                        JobTypeId = jt.JobTypeId,
+                        JobTypeName = jt.TypeName
+                    })
+                    .ToListAsync();
+
+                return jobTypes;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting job types");
+                throw;
+            }
+        }
+        #endregion
     }
 } 

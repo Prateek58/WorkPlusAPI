@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System;
+using System.ComponentModel.DataAnnotations;
 
 namespace WorkPlusAPI.WorkPlus.DTOs
 {
@@ -12,17 +13,62 @@ namespace WorkPlusAPI.WorkPlus.DTOs
     public class JobDTO
     {
         public int JobId { get; set; }
-        public string JobName { get; set; }
+        
+        [Required]
+        [StringLength(100)]
+        public string JobName { get; set; } = string.Empty;
+        
+        public int JobTypeId { get; set; }
+        
         public decimal? RatePerItem { get; set; }
+        
         public decimal? RatePerHour { get; set; }
+        
         public decimal? ExpectedHours { get; set; }
+        
         public int? ExpectedItemsPerHour { get; set; }
+        
         public decimal? IncentiveBonusRate { get; set; }
+        
         public decimal? PenaltyRate { get; set; }
-        public string IncentiveType { get; set; }
+        
+        public string? IncentiveType { get; set; }
+        
+        public int CreatedBy { get; set; }
+        
+        // Navigation properties for display
+        public string? JobTypeName { get; set; }
+        public string? CreatedByName { get; set; }
+    }
+    
+    public class JobCreateDTO
+    {
+        [Required]
+        [StringLength(100)]
+        public string JobName { get; set; } = string.Empty;
+        
+        [Required]
+        public int JobTypeId { get; set; }
+        
+        public decimal? RatePerItem { get; set; }
+        
+        public decimal? RatePerHour { get; set; }
+        
+        public decimal? ExpectedHours { get; set; }
+        
+        public int? ExpectedItemsPerHour { get; set; }
+        
+        public decimal? IncentiveBonusRate { get; set; }
+        
+        public decimal? PenaltyRate { get; set; }
+        
+        public string? IncentiveType { get; set; } = "PerUnit";
+        
+        [Required]
+        public int CreatedBy { get; set; }
     }
 
-    public class JobGroupDTO
+    public class JobGroupSummaryDTO
     {
         public int GroupId { get; set; }
         public string GroupName { get; set; }
@@ -32,7 +78,7 @@ namespace WorkPlusAPI.WorkPlus.DTOs
     {
         public List<WorkerDTO> Workers { get; set; } = new List<WorkerDTO>();
         public List<JobDTO> Jobs { get; set; } = new List<JobDTO>();
-        public List<JobGroupDTO> JobGroups { get; set; } = new List<JobGroupDTO>();
+        public List<JobGroupSummaryDTO> JobGroups { get; set; } = new List<JobGroupSummaryDTO>();
     }
 
     public class JobEntryDTO

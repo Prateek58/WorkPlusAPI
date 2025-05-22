@@ -57,7 +57,7 @@ namespace WorkPlusAPI.WorkPlus.Service
                         job.JobId, job.JobName, job.RatePerItem, job.RatePerHour, job.ExpectedHours, job.ExpectedItemsPerHour);
                 }
 
-                var jobGroups = await _context.JobGroups.Select(g => new JobGroupDTO
+                var jobGroups = await _context.JobGroups.Select(g => new JobGroupSummaryDTO
                 {
                     GroupId = g.GroupId,
                     GroupName = g.GroupName

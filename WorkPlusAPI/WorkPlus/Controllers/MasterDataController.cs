@@ -257,5 +257,306 @@ namespace WorkPlus.Controllers
             }
         }
         #endregion
+
+        #region JobGroups
+        [HttpGet("job-groups")]
+        public async Task<ActionResult<IEnumerable<JobGroupDTO>>> GetJobGroups()
+        {
+            try
+            {
+                var jobGroups = await _masterDataService.GetJobGroupsAsync();
+                return Ok(jobGroups);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting job groups");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpGet("job-groups/{id}")]
+        public async Task<ActionResult<JobGroupDTO>> GetJobGroup(int id)
+        {
+            try
+            {
+                var jobGroup = await _masterDataService.GetJobGroupAsync(id);
+                if (jobGroup == null)
+                    return NotFound();
+
+                return Ok(jobGroup);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting job group {Id}", id);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpPost("job-groups")]
+        public async Task<ActionResult<JobGroupDTO>> CreateJobGroup(JobGroupDTO jobGroup)
+        {
+            try
+            {
+                var createdJobGroup = await _masterDataService.CreateJobGroupAsync(jobGroup);
+                return CreatedAtAction(nameof(GetJobGroup), new { id = createdJobGroup.GroupId }, createdJobGroup);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating job group");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpPut("job-groups/{id}")]
+        public async Task<IActionResult> UpdateJobGroup(int id, JobGroupDTO jobGroup)
+        {
+            try
+            {
+                if (id != jobGroup.GroupId)
+                    return BadRequest();
+
+                var success = await _masterDataService.UpdateJobGroupAsync(jobGroup);
+                if (!success)
+                    return NotFound();
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating job group {Id}", id);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpDelete("job-groups/{id}")]
+        public async Task<IActionResult> DeleteJobGroup(int id)
+        {
+            try
+            {
+                var success = await _masterDataService.DeleteJobGroupAsync(id);
+                if (!success)
+                    return NotFound();
+
+                return NoContent();
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid operation: {Message}", ex.Message);
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting job group {Id}", id);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+        #endregion
+
+        #region GroupMembers
+        [HttpGet("group-members")]
+        public async Task<ActionResult<IEnumerable<GroupMemberDTO>>> GetGroupMembers()
+        {
+            try
+            {
+                var groupMembers = await _masterDataService.GetGroupMembersAsync();
+                return Ok(groupMembers);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting group members");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpGet("job-groups/{groupId}/members")]
+        public async Task<ActionResult<IEnumerable<GroupMemberDTO>>> GetGroupMembersByGroup(int groupId)
+        {
+            try
+            {
+                var groupMembers = await _masterDataService.GetGroupMembersByGroupAsync(groupId);
+                return Ok(groupMembers);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting group members for group {GroupId}", groupId);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpGet("group-members/{id}")]
+        public async Task<ActionResult<GroupMemberDTO>> GetGroupMember(int id)
+        {
+            try
+            {
+                var groupMember = await _masterDataService.GetGroupMemberAsync(id);
+                if (groupMember == null)
+                    return NotFound();
+
+                return Ok(groupMember);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting group member {Id}", id);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpPost("group-members")]
+        public async Task<ActionResult<GroupMemberDTO>> CreateGroupMember(GroupMemberCreateDTO groupMember)
+        {
+            try
+            {
+                var createdGroupMember = await _masterDataService.CreateGroupMemberAsync(groupMember);
+                return CreatedAtAction(nameof(GetGroupMember), new { id = createdGroupMember.Id }, createdGroupMember);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid operation: {Message}", ex.Message);
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating group member");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpDelete("group-members/{id}")]
+        public async Task<IActionResult> DeleteGroupMember(int id)
+        {
+            try
+            {
+                var success = await _masterDataService.DeleteGroupMemberAsync(id);
+                if (!success)
+                    return NotFound();
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting group member {Id}", id);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+        #endregion
+
+        #region Jobs
+        [HttpGet("jobs")]
+        public async Task<ActionResult<IEnumerable<JobDTO>>> GetJobs()
+        {
+            try
+            {
+                var jobs = await _masterDataService.GetJobsAsync();
+                return Ok(jobs);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting jobs");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpGet("jobs/{id}")]
+        public async Task<ActionResult<JobDTO>> GetJob(int id)
+        {
+            try
+            {
+                var job = await _masterDataService.GetJobAsync(id);
+                if (job == null)
+                    return NotFound();
+
+                return Ok(job);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting job {Id}", id);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpPost("jobs")]
+        public async Task<ActionResult<JobDTO>> CreateJob(JobCreateDTO job)
+        {
+            try
+            {
+                var createdJob = await _masterDataService.CreateJobAsync(job);
+                return CreatedAtAction(nameof(GetJob), new { id = createdJob.JobId }, createdJob);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid operation: {Message}", ex.Message);
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating job");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpPut("jobs/{id}")]
+        public async Task<IActionResult> UpdateJob(int id, JobDTO job)
+        {
+            try
+            {
+                if (id != job.JobId)
+                    return BadRequest();
+
+                var success = await _masterDataService.UpdateJobAsync(job);
+                if (!success)
+                    return NotFound();
+
+                return NoContent();
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid operation: {Message}", ex.Message);
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating job {Id}", id);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpDelete("jobs/{id}")]
+        public async Task<IActionResult> DeleteJob(int id)
+        {
+            try
+            {
+                var success = await _masterDataService.DeleteJobAsync(id);
+                if (!success)
+                    return NotFound();
+
+                return NoContent();
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid operation: {Message}", ex.Message);
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting job {Id}", id);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpGet("job-types")]
+        public async Task<ActionResult<IEnumerable<dynamic>>> GetJobTypes()
+        {
+            try
+            {
+                var jobTypes = await _masterDataService.GetJobTypesAsync();
+                return Ok(jobTypes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting job types");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+        #endregion
     }
 } 
