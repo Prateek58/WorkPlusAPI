@@ -105,6 +105,61 @@ namespace WorkPlusAPI.WorkPlus.Service
                 _context.JobEntries.Add(jobEntry);
                 await _context.SaveChangesAsync();
 
+                // Add JobEntryWorker records for group entries
+                if (jobEntry.EntryType == "Group" && jobEntry.GroupId.HasValue)
+                {
+                    try
+                    {
+                        // Fetch all workers in the group
+                        var groupMembers = await _context.GroupMembers
+                            .Where(gm => gm.GroupId == jobEntry.GroupId.Value)
+                            .ToListAsync();
+
+                        _logger.LogInformation("Found {Count} workers in group {GroupId}", 
+                            groupMembers.Count, jobEntry.GroupId.Value);
+
+                        // Create JobEntryWorker records for each worker in the group
+                        foreach (var member in groupMembers)
+                        {
+                            var jobEntryWorker = new JobEntryWorker
+                            {
+                                EntryId = jobEntry.EntryId,
+                                WorkerId = member.WorkerId
+                            };
+                            _context.JobEntryWorkers.Add(jobEntryWorker);
+                        }
+
+                        await _context.SaveChangesAsync();
+                        _logger.LogInformation("Created JobEntryWorker records for all workers in group {GroupId}", 
+                            jobEntry.GroupId.Value);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error creating JobEntryWorker records for group {GroupId}", 
+                            jobEntry.GroupId.Value);
+                        // We don't throw here to ensure the job entry is still created
+                    }
+                }
+                else if (jobEntry.EntryType == "Individual" && jobEntry.WorkerId.HasValue)
+                {
+                    // For individual entries, add a single JobEntryWorker record
+                    try 
+                    {
+                        var jobEntryWorker = new JobEntryWorker
+                        {
+                            EntryId = jobEntry.EntryId,
+                            WorkerId = jobEntry.WorkerId.Value
+                        };
+                        _context.JobEntryWorkers.Add(jobEntryWorker);
+                        await _context.SaveChangesAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error creating JobEntryWorker record for individual worker {WorkerId}",
+                            jobEntry.WorkerId.Value);
+                    }
+                }
+
                 _logger.LogInformation("Created job entry with ID: {EntryId}", jobEntry.EntryId);
                 return jobEntry;
             }
