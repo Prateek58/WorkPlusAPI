@@ -35,7 +35,7 @@
     <Folder Include="Archive\Services\Workplus\" />
     <Folder Include="WorkPlus\Controllers\" />
     <Folder Include="WorkPlus\Data\" />
-    <Folder Include="WorkPlus\DTOs\" />
+    <Folder Include="WorkPlus\DTOs\WorkPlusReportsDTOs\" />
     <Folder Include="WorkPlus\Model\" />
     <Folder Include="WorkPlus\Service\" />
   </ItemGroup>
