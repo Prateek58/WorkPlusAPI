@@ -47,7 +47,8 @@ public class LRFilter
     public byte? UnitId { get; set; }
     public long? PartyId { get; set; }
     public int? TransporterId { get; set; }
-    public int? CityId { get; set; }
+    public string? CityId { get; set; }
+    public string? CityName { get; set; }
     public string? BillNo { get; set; }
     public string? LrNo { get; set; }
     public string? TruckNo { get; set; }

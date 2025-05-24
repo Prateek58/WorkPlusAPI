@@ -234,10 +234,26 @@ public class LRService : ILRService
                 query = query.Where(x => x.TransporterId == filter.TransporterId.Value);
             }
 
-            if (filter.CityId.HasValue)
+            if (!string.IsNullOrEmpty(filter.CityId))
             {
-                _logger.LogInformation("Filtering by city ID: {CityId}", filter.CityId.Value);
-                query = query.Where(x => x.CityId == filter.CityId.Value);
+                _logger.LogInformation("Filtering by city ID/Name: {CityId}", filter.CityId);
+                // Try to parse as int first for cityId, otherwise filter by cityName
+                if (int.TryParse(filter.CityId, out int cityIdInt))
+                {
+                    query = query.Where(x => x.CityId == cityIdInt);
+                }
+                else
+                {
+                    // Filter by city name if it's not a number
+                    query = query.Where(x => x.CityName != null && x.CityName.Contains(filter.CityId));
+                }
+            }
+
+            // Add city name filtering as well for better search capability
+            if (!string.IsNullOrEmpty(filter.CityName))
+            {
+                _logger.LogInformation("Filtering by city name: {CityName}", filter.CityName);
+                query = query.Where(x => x.CityName != null && x.CityName.Contains(filter.CityName));
             }
 
             if (!string.IsNullOrEmpty(filter.BillNo))
@@ -408,9 +424,18 @@ public class LRService : ILRService
                 query = query.Where(x => x.entry.TransporterId == filter.TransporterId.Value);
             }
 
-            if (filter.CityId.HasValue)
+            if (!string.IsNullOrEmpty(filter.CityId))
             {
-                query = query.Where(x => x.entry.CityId == filter.CityId.Value);
+                // Try to parse as int first for cityId, otherwise filter by cityName
+                if (int.TryParse(filter.CityId, out int cityIdInt))
+                {
+                    query = query.Where(x => x.entry.CityId == cityIdInt);
+                }
+                else
+                {
+                    // Filter by city name if it's not a number
+                    query = query.Where(x => x.entry.CityName != null && x.entry.CityName.Contains(filter.CityId));
+                }
             }
 
             if (!string.IsNullOrEmpty(filter.BillNo))
