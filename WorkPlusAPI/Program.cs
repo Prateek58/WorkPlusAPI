@@ -76,6 +76,7 @@ builder.Services.AddDbContext<ArchiveContext>(options =>
 // Register services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IJobWorkService, JobWorkService>();
+builder.Services.AddScoped<ILRService, LRService>();
 builder.Services.AddScoped<IJobEntryService, JobEntryService>();
 builder.Services.AddScoped<IMasterDataService, MasterDataService>();
 builder.Services.AddScoped<IWorkPlusReportsService, WorkPlusReportsService>();
