@@ -10,6 +10,7 @@ using WorkPlusAPI.Archive.Data.Workplus;
 using WorkPlusAPI.Archive.Services.Archive;
 using WorkPlusAPI.WorkPlus.Service;
 using WorkPlusAPI.WorkPlus.Data;
+using WorkPlusAPI.WorkPlus.Service.LR;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -65,6 +66,14 @@ builder.Services.AddDbContext<WorkPlusContext>(options =>
     )
 );
 
+// Add LR DbContext
+builder.Services.AddDbContext<LRDbContext>(options =>
+    options.UseMySql(
+        builder.Configuration.GetConnectionString("WorkPlusConnection"),
+        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("WorkPlusConnection"))
+    )
+);
+
 // Add Archive DbContext
 builder.Services.AddDbContext<ArchiveContext>(options =>
     options.UseMySql(
@@ -76,7 +85,7 @@ builder.Services.AddDbContext<ArchiveContext>(options =>
 // Register services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IJobWorkService, JobWorkService>();
-builder.Services.AddScoped<ILRService, LRService>();
+builder.Services.AddScoped<WorkPlusAPI.WorkPlus.Service.LR.ILRService, WorkPlusAPI.WorkPlus.Service.LR.LRService>();
 builder.Services.AddScoped<IJobEntryService, JobEntryService>();
 builder.Services.AddScoped<IMasterDataService, MasterDataService>();
 builder.Services.AddScoped<IWorkPlusReportsService, WorkPlusReportsService>();

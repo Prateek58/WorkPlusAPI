@@ -33,11 +33,12 @@
 
   <ItemGroup>
     <Folder Include="Archive\Services\Workplus\" />
-    <Folder Include="WorkPlus\Controllers\" />
+    <Folder Include="WorkPlus\Controllers\LR\" />
     <Folder Include="WorkPlus\Data\" />
+    <Folder Include="WorkPlus\DTOs\LRDTOs\" />
     <Folder Include="WorkPlus\DTOs\WorkPlusReportsDTOs\" />
     <Folder Include="WorkPlus\Model\" />
-    <Folder Include="WorkPlus\Service\" />
+    <Folder Include="WorkPlus\Service\LR\" />
   </ItemGroup>
 
 </Project>
