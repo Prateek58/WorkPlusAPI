@@ -7,7 +7,7 @@ using WorkPlusAPI.Archive.Services.Archive;
 namespace WorkPlusAPI.Archive.Controllers.Archive;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/Archive/[controller]")]
 [Authorize]
 public class LRController : ControllerBase
 {

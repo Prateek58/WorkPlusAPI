@@ -166,4 +166,53 @@ public class AttendanceController : ControllerBase
             return BadRequest(new { message = ex.Message });
         }
     }
+
+    [HttpGet("validate-date")]
+    public async Task<ActionResult> ValidateAttendanceDate([FromQuery] string date)
+    {
+        try
+        {
+            if (!DateTime.TryParse(date, out DateTime attendanceDate))
+            {
+                return BadRequest(new { message = "Invalid date format" });
+            }
+
+            var isHoliday = await _attendanceService.IsHolidayAsync(attendanceDate);
+            var dayOfWeek = attendanceDate.DayOfWeek.ToString();
+            
+            // Check if it's a working day (this is a simplified check)
+            var isWeekend = attendanceDate.DayOfWeek == DayOfWeek.Saturday || attendanceDate.DayOfWeek == DayOfWeek.Sunday;
+            
+            if (isHoliday)
+            {
+                return Ok(new
+                {
+                    isValid = false,
+                    canOverride = true,
+                    message = $"{attendanceDate:dd/MM/yyyy} is a public holiday. Attendance can still be marked if needed."
+                });
+            }
+
+            if (isWeekend)
+            {
+                return Ok(new
+                {
+                    isValid = false,
+                    canOverride = true,
+                    message = $"{attendanceDate:dd/MM/yyyy} is a weekend. Attendance can still be marked if needed."
+                });
+            }
+
+            return Ok(new
+            {
+                isValid = true,
+                canOverride = false,
+                message = "Valid working day for attendance marking."
+            });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 } 
