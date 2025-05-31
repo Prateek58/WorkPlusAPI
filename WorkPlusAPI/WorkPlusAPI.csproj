@@ -34,11 +34,14 @@
   <ItemGroup>
     <Folder Include="Archive\Services\Workplus\" />
     <Folder Include="WorkPlus\Controllers\LR\" />
+    <Folder Include="WorkPlus\Controllers\HR\" />
     <Folder Include="WorkPlus\Data\" />
     <Folder Include="WorkPlus\DTOs\LRDTOs\" />
+    <Folder Include="WorkPlus\DTOs\HRDTOs\" />
     <Folder Include="WorkPlus\DTOs\WorkPlusReportsDTOs\" />
     <Folder Include="WorkPlus\Model\" />
     <Folder Include="WorkPlus\Service\LR\" />
+    <Folder Include="WorkPlus\Service\HR\" />
   </ItemGroup>
 
 </Project>

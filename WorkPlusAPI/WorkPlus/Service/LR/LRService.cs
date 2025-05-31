@@ -342,11 +342,16 @@ namespace WorkPlusAPI.WorkPlus.Service.LR
         
         public async Task<CityDTO> CreateCityAsync(CreateCityDTO createDto)
         {
+            // Get the next available city ID
+            var maxCityId = await _context.Statecities
+                .MaxAsync(c => (int?)c.CityId) ?? 0;
+            
             var city = new Statecity
             {
+                CityId = maxCityId + 1,
                 CityName = createDto.CityName,
-                Latitude = createDto.Latitude,
-                Longitude = createDto.Longitude,
+                Latitude = createDto.Latitude ?? "",
+                Longitude = createDto.Longitude ?? "",
                 State = createDto.State
             };
 

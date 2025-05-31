@@ -11,6 +11,7 @@ using WorkPlusAPI.Archive.Services.Archive;
 using WorkPlusAPI.WorkPlus.Service;
 using WorkPlusAPI.WorkPlus.Data;
 using WorkPlusAPI.WorkPlus.Service.LR;
+using WorkPlusAPI.WorkPlus.Service.HR;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -74,6 +75,14 @@ builder.Services.AddDbContext<LRDbContext>(options =>
     )
 );
 
+// Add HR DbContext
+builder.Services.AddDbContext<HRDbContext>(options =>
+    options.UseMySql(
+        builder.Configuration.GetConnectionString("WorkPlusConnection"),
+        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("WorkPlusConnection"))
+    )
+);
+
 // Add Archive DbContext
 builder.Services.AddDbContext<ArchiveContext>(options =>
     options.UseMySql(
@@ -89,6 +98,10 @@ builder.Services.AddScoped<WorkPlusAPI.WorkPlus.Service.LR.ILRService, WorkPlusA
 builder.Services.AddScoped<IJobEntryService, JobEntryService>();
 builder.Services.AddScoped<IMasterDataService, MasterDataService>();
 builder.Services.AddScoped<IWorkPlusReportsService, WorkPlusReportsService>();
+
+// Register HR services
+builder.Services.AddScoped<IAttendanceService, AttendanceService>();
+builder.Services.AddScoped<ILeaveService, LeaveService>();
 
 // Configure JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
