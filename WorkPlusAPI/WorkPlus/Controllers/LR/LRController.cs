@@ -23,7 +23,7 @@ namespace WorkPlusAPI.WorkPlus.Controllers.LR
         public async Task<ActionResult<IEnumerable<LREntryDTO>>> GetLREntries()
         {
             try
-            {
+                {
                 var entries = await _lrService.GetLREntriesAsync();
                 return Ok(entries);
             }

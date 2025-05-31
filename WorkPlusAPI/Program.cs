@@ -12,6 +12,7 @@ using WorkPlusAPI.WorkPlus.Service;
 using WorkPlusAPI.WorkPlus.Data;
 using WorkPlusAPI.WorkPlus.Service.LR;
 using WorkPlusAPI.WorkPlus.Service.HR;
+using WorkPlusAPI.WorkPlus.Data.UserSettings;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -67,6 +68,14 @@ builder.Services.AddDbContext<WorkPlusContext>(options =>
     )
 );
 
+// Add User Settings DbContext
+builder.Services.AddDbContext<UserSettingsContext>(options =>
+    options.UseMySql(
+        builder.Configuration.GetConnectionString("WorkPlusConnection"),
+        ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("WorkPlusConnection"))
+    )
+);
+
 // Add LR DbContext
 builder.Services.AddDbContext<LRDbContext>(options =>
     options.UseMySql(
@@ -103,6 +112,9 @@ builder.Services.AddScoped<IWorkPlusReportsService, WorkPlusReportsService>();
 // Register HR services
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<ILeaveService, LeaveService>();
+
+// Register User Settings service
+builder.Services.AddScoped<IUserSettingsService, UserSettingsService>();
 
 // Configure JWT Authentication
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
