@@ -227,9 +227,56 @@ public class UserSettingsController : ControllerBase
             return StatusCode(500, "Internal server error");
         }
     }
+
+    // GET: api/user/usersettings/theme/use-custom-colors
+    [HttpGet("theme/use-custom-colors")]
+    public async Task<ActionResult<bool>> GetUseCustomColors()
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var useCustomColors = await _userSettingsService.GetUseCustomColorsAsync(userId);
+            return Ok(useCustomColors);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving use custom colors setting");
+            return StatusCode(500, "Internal server error");
+        }
+    }
+
+    // POST: api/user/usersettings/theme/use-custom-colors
+    [HttpPost("theme/use-custom-colors")]
+    public async Task<ActionResult<UserSettingDTO>> SetUseCustomColors([FromBody] SetUseCustomColorsRequest request)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var setting = await _userSettingsService.SetUseCustomColorsAsync(userId, request.UseCustomColors);
+            return Ok(setting);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error setting use custom colors");
+            return StatusCode(500, "Internal server error");
+        }
+    }
 }
 
 public class SetThemeModeRequest
 {
     public string Mode { get; set; } = string.Empty;
+}
+
+public class SetUseCustomColorsRequest
+{
+    public bool UseCustomColors { get; set; }
 } 

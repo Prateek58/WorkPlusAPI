@@ -32,8 +32,10 @@ public partial class LoginWorkPlusContext : DbContext
     public virtual DbSet<Employee> Employees { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseMySql("server=localhost;database=work_plus;user=root;password=root123;port=3306", ServerVersion.Parse("11.7.2-mariadb"));
+    {
+        // Connection string is configured via dependency injection in Program.cs
+        // This method intentionally left minimal to ensure DI configuration is used
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

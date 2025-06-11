@@ -33,8 +33,8 @@ public partial class HRDbContext : DbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        // Connection string should be configured via dependency injection
-        // See Program.cs or Startup.cs for proper configuration
+        // Connection string is configured via dependency injection in Program.cs
+        // This method intentionally left minimal to ensure DI configuration is used
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

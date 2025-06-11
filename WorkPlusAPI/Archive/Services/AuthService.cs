@@ -32,44 +32,33 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponse?> Login(LoginRequest request)
     {
-        _logger.LogInformation("Login attempt - Username: {Username}", request.Username);
+        _logger.LogInformation("Login attempt for user: {Username}", request.Username);
 
         try
         {
-            // Temporary debug line
-            var debugHash = HashPassword("Admin123");
-            _logger.LogInformation("Debug - Hash of Admin123: {Hash}", debugHash);
-
+            // User lookup
             var user = await _context.Users
                 .Include(u => u.Roles)
                 .FirstOrDefaultAsync(u => u.Username == request.Username);
 
-            _logger.LogInformation("User lookup result - Found: {Found}, Username: {Username}",
-                user != null, request.Username);
-
             if (user == null)
             {
-                _logger.LogWarning("Login failed - User not found: {Username}", request.Username);
+                _logger.LogWarning("User not found: {Username}", request.Username);
                 return null;
             }
 
-            _logger.LogInformation("Verifying password for user: {Username}", request.Username);
-            var inputHash = HashPassword(request.Password);
-            _logger.LogInformation("Password comparison - Stored: {StoredHash}, Input: {InputHash}",
-                user.PasswordHash, inputHash);
-
+            // Verify password
             if (!VerifyPassword(request.Password, user.PasswordHash))
             {
-                _logger.LogWarning("Login failed - Invalid password for user: {Username}", request.Username);
+                _logger.LogWarning("Invalid password for user: {Username}", request.Username);
                 return null;
             }
 
-            _logger.LogInformation("Login successful - Generating token for user: {Username}", request.Username);
+            // Generate token
             var roles = user.Roles.Select(r => r.Name).ToList();
-            _logger.LogInformation("User roles: {Roles}", string.Join(", ", roles));
-
             var token = GenerateJwtToken(user);
-            _logger.LogInformation("Token generated successfully for user: {Username}", request.Username);
+            
+            _logger.LogInformation("Login successful for user: {Username}", request.Username);
 
             return new AuthResponse
             {
@@ -80,10 +69,15 @@ public class AuthService : IAuthService
                 Roles = roles
             };
         }
+        catch (MySqlConnector.MySqlException dbEx)
+        {
+            _logger.LogError(dbEx, "Database error during login for user: {Username}", request.Username);
+            throw new Exception($"Database connection error: {dbEx.Message}");
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during login process for user: {Username}", request.Username);
-            throw;
+            throw new Exception($"Login error: {ex.Message}");
         }
     }
 

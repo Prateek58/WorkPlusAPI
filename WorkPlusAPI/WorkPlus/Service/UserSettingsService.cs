@@ -157,12 +157,88 @@ public class UserSettingsService : IUserSettingsService
     public async Task<UserSettingDTO> SetThemeColorsAsync(int userId, object colors)
     {
         var jsonValue = JsonSerializer.Serialize(colors);
+        
+        // Clean up old individual color settings that might conflict
+        var oldColorKeys = new[]
+        {
+            "custom_primary_light", "custom_primary_dark",
+            "custom_secondary_light", "custom_secondary_dark",
+            "custom_accent_light", "custom_accent_dark",
+            "custom_background_light", "custom_background_dark",
+            "custom_surface_light", "custom_surface_dark",
+            "custom_text_light", "custom_text_dark"
+        };
+        
+        foreach (var key in oldColorKeys)
+        {
+            await DeleteSettingAsync(userId, key);
+        }
+        
         return await CreateOrUpdateSettingAsync(userId, new CreateUserSettingDTO
         {
             SettingKey = "theme_colors",
             SettingValue = jsonValue,
             SettingType = "json"
         });
+    }
+
+    public async Task<bool> GetUseCustomColorsAsync(int userId)
+    {
+        try
+        {
+            var setting = await GetUserSettingAsync(userId, "use_custom_colors");
+            if (setting?.SettingValue != null)
+            {
+                return bool.TryParse(setting.SettingValue, out var result) && result;
+            }
+            return false; // Default to false
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving use custom colors setting for user {UserId}", userId);
+            return false;
+        }
+    }
+
+    public async Task<UserSettingDTO> SetUseCustomColorsAsync(int userId, bool useCustomColors)
+    {
+        return await CreateOrUpdateSettingAsync(userId, new CreateUserSettingDTO
+        {
+            SettingKey = "use_custom_colors",
+            SettingValue = useCustomColors.ToString().ToLower(),
+            SettingType = "boolean"
+        });
+    }
+
+    public async Task<bool> CleanupLegacyColorSettingsAsync(int userId)
+    {
+        try
+        {
+            var oldColorKeys = new[]
+            {
+                "custom_primary_light", "custom_primary_dark",
+                "custom_secondary_light", "custom_secondary_dark",
+                "custom_accent_light", "custom_accent_dark",
+                "custom_background_light", "custom_background_dark",
+                "custom_surface_light", "custom_surface_dark",
+                "custom_text_light", "custom_text_dark"
+            };
+            
+            var deletedCount = 0;
+            foreach (var key in oldColorKeys)
+            {
+                var deleted = await DeleteSettingAsync(userId, key);
+                if (deleted) deletedCount++;
+            }
+            
+            _logger.LogInformation("Cleaned up {DeletedCount} legacy color settings for user {UserId}", deletedCount, userId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cleaning up legacy color settings for user {UserId}", userId);
+            return false;
+        }
     }
 
     public async Task<IEnumerable<UserSettingDTO>> UpdateMultipleSettingsAsync(int userId, IEnumerable<CreateUserSettingDTO> settings)

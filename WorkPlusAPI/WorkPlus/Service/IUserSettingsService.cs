@@ -15,6 +15,9 @@ public interface IUserSettingsService
     Task<UserSettingDTO> SetThemeModeAsync(int userId, string mode);
     Task<object?> GetThemeColorsAsync(int userId);
     Task<UserSettingDTO> SetThemeColorsAsync(int userId, object colors);
+    Task<bool> GetUseCustomColorsAsync(int userId);
+    Task<UserSettingDTO> SetUseCustomColorsAsync(int userId, bool useCustomColors);
+    Task<bool> CleanupLegacyColorSettingsAsync(int userId);
     
     // Bulk operations
     Task<IEnumerable<UserSettingDTO>> UpdateMultipleSettingsAsync(int userId, IEnumerable<CreateUserSettingDTO> settings);
