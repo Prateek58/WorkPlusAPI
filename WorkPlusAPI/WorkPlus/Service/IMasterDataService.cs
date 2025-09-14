@@ -42,6 +42,7 @@ namespace WorkPlusAPI.WorkPlus.Service
         Task<IEnumerable<GroupMemberDTO>> GetGroupMembersByGroupAsync(int groupId);
         Task<GroupMemberDTO> GetGroupMemberAsync(int id);
         Task<GroupMemberDTO> CreateGroupMemberAsync(GroupMemberCreateDTO groupMemberDto);
+        Task<List<GroupMemberDTO>> CreateGroupMembersBulkAsync(GroupMemberBulkCreateDTO bulkGroupMemberDto);
         Task<bool> DeleteGroupMemberAsync(int id);
         #endregion
 
@@ -64,4 +65,4 @@ namespace WorkPlusAPI.WorkPlus.Service
         Task<EmployeeTypeDTO> GetEmployeeTypeAsync(int id);
         #endregion
     }
-} 
+}

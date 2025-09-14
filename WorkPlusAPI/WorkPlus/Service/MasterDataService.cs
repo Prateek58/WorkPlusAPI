@@ -875,6 +875,90 @@ namespace WorkPlusAPI.WorkPlus.Service
             }
         }
 
+        public async Task<List<GroupMemberDTO>> CreateGroupMembersBulkAsync(GroupMemberBulkCreateDTO bulkGroupMemberDto)
+        {
+            try
+            {
+                // Verify that group exists
+                var group = await _context.JobGroups.FindAsync(bulkGroupMemberDto.GroupId);
+                if (group == null)
+                {
+                    throw new InvalidOperationException("Group not found");
+                }
+
+                // Get current member count
+                var currentMemberCount = await _context.GroupMembers
+                    .CountAsync(gm => gm.GroupId == bulkGroupMemberDto.GroupId);
+
+                // Check if adding these workers would exceed the maximum workers for the group
+                if (currentMemberCount + bulkGroupMemberDto.WorkerIds.Count > group.MaxWorkers)
+                {
+                    throw new InvalidOperationException($"Cannot add {bulkGroupMemberDto.WorkerIds.Count} workers. Group would exceed its maximum capacity of {group.MaxWorkers} workers (currently has {currentMemberCount})");
+                }
+
+                // Get existing group members to check for duplicates
+                var existingMemberWorkerIds = await _context.GroupMembers
+                    .Where(gm => gm.GroupId == bulkGroupMemberDto.GroupId)
+                    .Select(gm => gm.WorkerId)
+                    .ToListAsync();
+
+                // Check for duplicate workers
+                var duplicateWorkers = bulkGroupMemberDto.WorkerIds.Intersect(existingMemberWorkerIds).ToList();
+                if (duplicateWorkers.Any())
+                {
+                    var duplicateWorkerNames = await _context.Workers
+                        .Where(w => duplicateWorkers.Contains(w.WorkerId))
+                        .Select(w => w.FullName)
+                        .ToListAsync();
+                    throw new InvalidOperationException($"The following workers are already members of this group: {string.Join(", ", duplicateWorkerNames)}");
+                }
+
+                // Verify that all workers exist and are active
+                var workers = await _context.Workers
+                    .Where(w => bulkGroupMemberDto.WorkerIds.Contains(w.WorkerId))
+                    .ToListAsync();
+
+                var foundWorkerIds = workers.Select(w => w.WorkerId).ToList();
+                var missingWorkerIds = bulkGroupMemberDto.WorkerIds.Except(foundWorkerIds).ToList();
+                if (missingWorkerIds.Any())
+                {
+                    throw new InvalidOperationException($"Workers with IDs {string.Join(", ", missingWorkerIds)} not found");
+                }
+
+                var inactiveWorkers = workers.Where(w => w.IsActive != true).ToList();
+                if (inactiveWorkers.Any())
+                {
+                    var inactiveWorkerNames = inactiveWorkers.Select(w => w.FullName).ToList();
+                    throw new InvalidOperationException($"The following workers are inactive: {string.Join(", ", inactiveWorkerNames)}");
+                }
+
+                // Create group members
+                var groupMembers = bulkGroupMemberDto.WorkerIds.Select(workerId => new GroupMember
+                {
+                    GroupId = bulkGroupMemberDto.GroupId,
+                    WorkerId = workerId
+                }).ToList();
+
+                _context.GroupMembers.AddRange(groupMembers);
+                await _context.SaveChangesAsync();
+
+                // Fetch the complete group members with navigation properties
+                var createdGroupMembers = new List<GroupMemberDTO>();
+                foreach (var groupMember in groupMembers)
+                {
+                    var createdGroupMember = await GetGroupMemberAsync(groupMember.Id);
+                    createdGroupMembers.Add(createdGroupMember);
+                }
+
+                return createdGroupMembers;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating group members in bulk");
+                throw;
+            }
+        }
+
         public async Task<bool> DeleteGroupMemberAsync(int id)
         {
             try
@@ -1204,4 +1288,4 @@ namespace WorkPlusAPI.WorkPlus.Service
         }
         #endregion
     }
-} 
+}

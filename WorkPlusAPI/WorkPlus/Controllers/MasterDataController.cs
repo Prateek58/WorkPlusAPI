@@ -439,6 +439,26 @@ namespace WorkPlus.Controllers
             }
         }
 
+        [HttpPost("group-members/bulk")]
+        public async Task<ActionResult<List<GroupMemberDTO>>> CreateGroupMembersBulk(GroupMemberBulkCreateDTO bulkGroupMember)
+        {
+            try
+            {
+                var createdGroupMembers = await _masterDataService.CreateGroupMembersBulkAsync(bulkGroupMember);
+                return Ok(createdGroupMembers);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid operation: {Message}", ex.Message);
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating group members in bulk");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
         [HttpDelete("group-members/{id}")]
         public async Task<IActionResult> DeleteGroupMember(int id)
         {
@@ -647,4 +667,4 @@ namespace WorkPlus.Controllers
         }
         #endregion
     }
-} 
+}

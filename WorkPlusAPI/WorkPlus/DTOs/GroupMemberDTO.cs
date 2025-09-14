@@ -25,4 +25,14 @@ namespace WorkPlusAPI.WorkPlus.DTOs
         [Required]
         public int WorkerId { get; set; }
     }
-} 
+    
+    public class GroupMemberBulkCreateDTO
+    {
+        [Required]
+        public int GroupId { get; set; }
+        
+        [Required]
+        [MinLength(1, ErrorMessage = "At least one worker must be selected")]
+        public List<int> WorkerIds { get; set; } = new List<int>();
+    }
+}
