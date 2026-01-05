@@ -34,7 +34,7 @@ namespace WorkPlusAPI.WorkPlus.Service
                     })
                     .ToListAsync();
 
-                var jobsQuery = _context.Jobs.AsQueryable();
+                var jobsQuery = _context.Jobs.Include(j => j.JobType).AsQueryable();
                 _logger.LogInformation("SQL Query: {SQL}", jobsQuery.ToQueryString());
 
                 var jobs = await jobsQuery.Select(j => new JobDTO
@@ -47,7 +47,8 @@ namespace WorkPlusAPI.WorkPlus.Service
                     ExpectedItemsPerHour = j.ExpectedItemsPerHour,
                     IncentiveBonusRate = j.IncentiveBonusRate,
                     PenaltyRate = j.PenaltyRate,
-                    IncentiveType = j.IncentiveType
+                    IncentiveType = j.IncentiveType,
+                    JobTypeName = j.JobType.TypeName
                 }).ToListAsync();
 
                 foreach (var job in jobs)
