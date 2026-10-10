@@ -14,7 +14,7 @@ jobs:
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SITE_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          password: ${{ secrets.SSH_PASSWORD  }}
           port: 22
           script: |
             # Navigate to the backend project directory on CloudPanel
