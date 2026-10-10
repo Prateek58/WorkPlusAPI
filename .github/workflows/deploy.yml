@@ -17,14 +17,25 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD  }}
           port: 22
           script: |
-            # Navigate to the backend project directory on CloudPanel
-            cd ~/htdocs/api.workplus.layerbiz.com
+            # Navigate to the backend site directory on CloudPanel
+            if [ -d "~/htdocs/api.workplus.layerbiz.com/WorkPlusAPI/.git" ]; then
+              cd ~/htdocs/api.workplus.layerbiz.com/WorkPlusAPI
+            else
+              cd ~/htdocs/api.workplus.layerbiz.com
+            fi
             
             # Pull latest changes from main branch
             git pull origin main
             
-            # Build and publish .NET 8 API project
-            dotnet publish WorkPlusAPI/WorkPlusAPI.csproj -c Release -o ./publish
+            # Find and publish .NET 8 API project
+            if [ -f "WorkPlusAPI/WorkPlusAPI.csproj" ]; then
+              dotnet publish WorkPlusAPI/WorkPlusAPI.csproj -c Release -o ./publish
+            elif [ -f "WorkPlusAPI.csproj" ]; then
+              dotnet publish WorkPlusAPI.csproj -c Release -o ./publish
+            else
+              echo "Error: WorkPlusAPI.csproj not found!"
+              exit 1
+            fi
             
             # Restart backend process using PM2
             pm2 delete layerbiz-workplus-api || true
