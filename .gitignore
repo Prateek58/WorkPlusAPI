@@ -398,3 +398,11 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# Ignore environment appsettings containing secrets
+**/appsettings.Production.json
+**/appsettings.Development.json
+**/appsettings.Local.json
+**/appsettings.*.json
+!**/appsettings.json
+
