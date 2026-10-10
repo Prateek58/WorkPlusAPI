@@ -1,0 +1,32 @@
+name: Deploy Backend API to CloudPanel
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH into server and deploy .NET API
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SITE_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            # Navigate to the backend project directory on CloudPanel
+            cd ~/htdocs/api.workplus.layerbiz.com
+            
+            # Pull latest changes from main branch
+            git pull origin main
+            
+            # Build and publish .NET 8 API project
+            dotnet publish WorkPlusAPI/WorkPlusAPI.csproj -c Release -o ./publish
+            
+            # Restart backend process using PM2
+            pm2 delete layerbiz-workplus-api || true
+            pm2 start "dotnet ./publish/WorkPlusAPI.dll --urls=http://localhost:5000" --name "layerbiz-workplus-api"
+            pm2 save
