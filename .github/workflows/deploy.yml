@@ -6,75 +6,48 @@ on:
       - main
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: SSH into server and deploy .NET API
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore WorkPlusAPI.sln
+
+      - name: Build and Publish .NET API
+        run: dotnet publish WorkPlusAPI/WorkPlusAPI.csproj -c Release -o ./publish
+
+      - name: Copy published files to Server via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SITE_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          source: "./publish/*"
+          target: "~/htdocs/api.workplus.layerbiz.com"
+          strip_components: 1
+          rm: false
+
+      - name: Restart PM2 process on Server
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SITE_USER }}
-          password: ${{ secrets.SSH_PASSWORD  }}
+          password: ${{ secrets.SSH_PASSWORD }}
           port: 22
           script: |
-            # Load NVM / Node environment so PM2 is found in non-interactive SSH
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
             
-            # Set site root path with proper $HOME expansion
-            SITE_DIR="$HOME/htdocs/api.workplus.layerbiz.com"
-            
-            if [ -d "$SITE_DIR" ]; then
-              cd "$SITE_DIR"
-            else
-              echo "Error: Directory $SITE_DIR does not exist!"
-              exit 1
-            fi
-            
-            echo "=== Deployment Working Directory ==="
-            pwd
-            ls -la
-            
-            # Find git repository root
-            if [ -d ".git" ]; then
-              echo "Git repository found in $(pwd)"
-            elif [ -d "WorkPlusAPI/.git" ]; then
-              echo "Git repository found in $(pwd)/WorkPlusAPI"
-              cd WorkPlusAPI
-            else
-              echo "FATAL: No .git repository found in $SITE_DIR!"
-              echo "Because this site was previously hosted manually, Git is not yet connected on the server."
-              echo "Please run: cd $SITE_DIR && git clone <YOUR_GIT_REPO_URL> ."
-              exit 1
-            fi
-            
-            # Pull latest changes from main branch
-            git pull origin main
-            
-            # Locate WorkPlusAPI.csproj
-            if [ -f "WorkPlusAPI/WorkPlusAPI.csproj" ]; then
-              PROJECT_PATH="WorkPlusAPI/WorkPlusAPI.csproj"
-            elif [ -f "WorkPlusAPI.csproj" ]; then
-              PROJECT_PATH="WorkPlusAPI.csproj"
-            else
-              echo "Error: WorkPlusAPI.csproj not found in $(pwd)!"
-              exit 1
-            fi
-            
-            echo "Publishing $PROJECT_PATH..."
-            dotnet publish "$PROJECT_PATH" -c Release -o ./publish
-            
-            # Restart backend process using PM2 or Systemd
-            if command -v pm2 &> /dev/null; then
-              echo "Restarting API with PM2..."
-              pm2 delete layerbiz-workplus-api || true
-              pm2 start "dotnet ./publish/WorkPlusAPI.dll --urls=http://localhost:5000" --name "layerbiz-workplus-api"
-              pm2 save
-            elif command -v systemctl &> /dev/null && sudo systemctl is-active --quiet workplus-api 2>/dev/null; then
-              echo "Restarting API with Systemd..."
-              sudo systemctl restart workplus-api
-            else
-              echo "ERROR: Neither PM2 nor active Systemd service 'workplus-api' was found on the server."
-              echo "Please install PM2 via NVM or setup systemd service."
-              exit 1
-            fi
+            cd ~/htdocs/api.workplus.layerbiz.com
+            pm2 delete layerbiz-workplus-api || true
+            pm2 start "dotnet WorkPlusAPI.dll --urls=http://localhost:5000" --name "layerbiz-workplus-api"
+            pm2 save
