@@ -49,5 +49,6 @@ jobs:
             
             cd ~/htdocs/api.workplus.layerbiz.com
             pm2 delete layerbiz-workplus-api || true
+            fuser -k 5000/tcp || true
             pm2 start "dotnet WorkPlusAPI.dll --urls=http://localhost:5000" --name "layerbiz-workplus-api"
             pm2 save
