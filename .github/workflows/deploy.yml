@@ -17,27 +17,64 @@ jobs:
           password: ${{ secrets.SSH_PASSWORD  }}
           port: 22
           script: |
-            # Navigate to the backend site directory on CloudPanel
-            if [ -d "~/htdocs/api.workplus.layerbiz.com/WorkPlusAPI/.git" ]; then
-              cd ~/htdocs/api.workplus.layerbiz.com/WorkPlusAPI
+            # Load NVM / Node environment so PM2 is found in non-interactive SSH
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            
+            # Set site root path with proper $HOME expansion
+            SITE_DIR="$HOME/htdocs/api.workplus.layerbiz.com"
+            
+            if [ -d "$SITE_DIR" ]; then
+              cd "$SITE_DIR"
             else
-              cd ~/htdocs/api.workplus.layerbiz.com
+              echo "Error: Directory $SITE_DIR does not exist!"
+              exit 1
+            fi
+            
+            echo "=== Deployment Working Directory ==="
+            pwd
+            ls -la
+            
+            # Find git repository root
+            if [ -d ".git" ]; then
+              echo "Git repository found in $(pwd)"
+            elif [ -d "WorkPlusAPI/.git" ]; then
+              echo "Git repository found in $(pwd)/WorkPlusAPI"
+              cd WorkPlusAPI
+            else
+              echo "FATAL: No .git repository found in $SITE_DIR!"
+              echo "Because this site was previously hosted manually, Git is not yet connected on the server."
+              echo "Please run: cd $SITE_DIR && git clone <YOUR_GIT_REPO_URL> ."
+              exit 1
             fi
             
             # Pull latest changes from main branch
             git pull origin main
             
-            # Find and publish .NET 8 API project
+            # Locate WorkPlusAPI.csproj
             if [ -f "WorkPlusAPI/WorkPlusAPI.csproj" ]; then
-              dotnet publish WorkPlusAPI/WorkPlusAPI.csproj -c Release -o ./publish
+              PROJECT_PATH="WorkPlusAPI/WorkPlusAPI.csproj"
             elif [ -f "WorkPlusAPI.csproj" ]; then
-              dotnet publish WorkPlusAPI.csproj -c Release -o ./publish
+              PROJECT_PATH="WorkPlusAPI.csproj"
             else
-              echo "Error: WorkPlusAPI.csproj not found!"
+              echo "Error: WorkPlusAPI.csproj not found in $(pwd)!"
               exit 1
             fi
             
-            # Restart backend process using PM2
-            pm2 delete layerbiz-workplus-api || true
-            pm2 start "dotnet ./publish/WorkPlusAPI.dll --urls=http://localhost:5000" --name "layerbiz-workplus-api"
-            pm2 save
+            echo "Publishing $PROJECT_PATH..."
+            dotnet publish "$PROJECT_PATH" -c Release -o ./publish
+            
+            # Restart backend process using PM2 or Systemd
+            if command -v pm2 &> /dev/null; then
+              echo "Restarting API with PM2..."
+              pm2 delete layerbiz-workplus-api || true
+              pm2 start "dotnet ./publish/WorkPlusAPI.dll --urls=http://localhost:5000" --name "layerbiz-workplus-api"
+              pm2 save
+            elif command -v systemctl &> /dev/null && sudo systemctl is-active --quiet workplus-api 2>/dev/null; then
+              echo "Restarting API with Systemd..."
+              sudo systemctl restart workplus-api
+            else
+              echo "ERROR: Neither PM2 nor active Systemd service 'workplus-api' was found on the server."
+              echo "Please install PM2 via NVM or setup systemd service."
+              exit 1
+            fi
